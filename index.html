@@ -47,13 +47,19 @@ const WEAPONS = {
   tessen:     { name: 'Tessen',     dmg: 6,  range: 72,  dur: 18, cd: 8,  kb: 12, reflect: true },
   kanabo:     { name: 'Kanabo',     dmg: 18, range: 85,  dur: 40, cd: 18, kb: 12, guardBreak: true },
   yumi:       { name: 'Yumi Bow',   dmg: 10, range: 600, dur: 26, cd: 22, kb: 5, ranged: true, proj: 'arrow' },
+  odachi:     { name: 'Ōdachi',     dmg: 16, range: 125, dur: 36, cd: 16, kb: 10 },
+  smoke:      { name: 'Kemuridama', dmg: 9,  range: 600, dur: 16, cd: 28, kb: 5, ranged: true, proj: 'bomb' },
+  caltrops:   { name: 'Tetsubishi', dmg: 5,  range: 600, dur: 14, cd: 30, kb: 1, ranged: true, proj: 'caltrop' },
+  yari:       { name: 'Jumonji Yari', dmg: 10, range: 150, dur: 22, cd: 9, kb: 6 },
+  hook:       { name: 'Kaginawa',   dmg: 6,  range: 600, dur: 18, cd: 34, kb: 2, ranged: true, proj: 'hook' },
 };
-const ORDER = ['katana', 'nunchaku', 'bo', 'kusarigama', 'shuriken', 'sai', 'tonfa', 'naginata', 'claws', 'blowgun', 'kunai', 'kama', 'tessen', 'kanabo', 'yumi'];
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'r', 't', 'y', 'u', 'i'];
+const ORDER = ['katana', 'nunchaku', 'bo', 'kusarigama', 'shuriken', 'sai', 'tonfa', 'naginata', 'claws', 'blowgun', 'kunai', 'kama', 'tessen', 'kanabo', 'yumi', 'odachi', 'smoke', 'caltrops', 'yari', 'hook'];
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'f', 'g', 'h'];
 const SPECIALS = { katana: 'Shadow Dash', nunchaku: 'Dragon Flurry', bo: 'Earth Breaker', kusarigama: 'Serpent Chain', shuriken: 'Storm of Stars',
   sai: 'Iron Parry', tonfa: 'Whirlwind', naginata: 'Crescent Moon', claws: 'Tiger Pounce', blowgun: 'Poison Cloud',
-  kunai: 'Kunai Rain', kama: 'Twin Reaper', tessen: 'Gale Fan', kanabo: 'Oni Smash', yumi: 'Fire Arrow' };
-const SPECIAL_RANGE = { katana: 280, nunchaku: 75, bo: 300, kusarigama: 270, shuriken: 600, sai: 90, tonfa: 80, naginata: 220, claws: 300, blowgun: 500, kunai: 600, kama: 90, tessen: 200, kanabo: 140, yumi: 600 };
+  kunai: 'Kunai Rain', kama: 'Twin Reaper', tessen: 'Gale Fan', kanabo: 'Oni Smash', yumi: 'Fire Arrow',
+  odachi: 'Crescent Wave', smoke: 'Vanishing Smoke', caltrops: 'Caltrop Field', yari: 'Falling Dragon', hook: 'Grapple Slam' };
+const SPECIAL_RANGE = { katana: 280, nunchaku: 75, bo: 300, kusarigama: 270, shuriken: 600, sai: 90, tonfa: 80, naginata: 220, claws: 300, blowgun: 500, kunai: 600, kama: 90, tessen: 200, kanabo: 140, yumi: 600, odachi: 400, smoke: 500, caltrops: 300, yari: 350, hook: 500 };
 const STAGES = [
   { name: 'Kage', title: 'The Shadow',       weapon: 'nunchaku',   color: '#b8322a', accent: '#ff8a7a', hp: 90,  aggr: 0.06, block: 0.15, dodge: 0.2, speed: 0.85 },
   { name: 'Ryu',  title: 'Chain Serpent',    weapon: 'kusarigama', color: '#6c3fb5', accent: '#c4a2ff', hp: 110, aggr: 0.09, block: 0.3,  dodge: 0.4, speed: 0.95 },
@@ -69,16 +75,16 @@ const MORE_RIVALS = [
   ['Mizu', 'Koi Spirit', 'nunchaku', '#2a6a9a', '#9fd8ff'], ['Akane', 'Crimson Warlord', 'katana', '#8a1010', '#ffb000'],
   ['Sugi', 'Cedar Hermit', 'bo', '#4a6a3a', '#c8e0a0'], ['Hotaru', 'Lantern Dancer', 'tessen', '#d07a20', '#ffe0a0'],
   ['Koori', 'Frost Monk', 'sai', '#6a8ab0', '#e0f0ff'], ['Raiden', 'Thunder Fist', 'tonfa', '#3a3a6a', '#ffe040'],
-  ['Ume', 'Plum Empress', 'naginata', '#a0306a', '#ffd0e8'], ['Hai', 'Ash Wraith', 'claws', '#4a4a4a', '#c8c8c8'],
-  ['Asahi', 'Dawn Blade', 'katana', '#d06030', '#fff0b0'], ['Take', 'Bamboo Viper', 'kusarigama', '#2a5a2a', '#a0ff80'],
-  ['Arashi', 'Storm Sailor', 'kunai', '#2a4a6a', '#80c0ff'], ['Chiyo', 'Blood Moon Queen', 'kama', '#5a0a14', '#ff4060'],
-  ['Fuji', 'Wisteria Ghost', 'blowgun', '#7a5aa8', '#e0c8ff'], ['Inaba', 'Terrace Guard', 'bo', '#5a7a4a', '#ffd080'],
+  ['Ume', 'Plum Empress', 'naginata', '#a0306a', '#ffd0e8'], ['Hai', 'Ash Wraith', 'caltrops', '#4a4a4a', '#c8c8c8'],
+  ['Asahi', 'Dawn Blade', 'odachi', '#d06030', '#fff0b0'], ['Take', 'Bamboo Viper', 'kusarigama', '#2a5a2a', '#a0ff80'],
+  ['Arashi', 'Storm Sailor', 'hook', '#2a4a6a', '#80c0ff'], ['Chiyo', 'Blood Moon Queen', 'kama', '#5a0a14', '#ff4060'],
+  ['Fuji', 'Wisteria Ghost', 'blowgun', '#7a5aa8', '#e0c8ff'], ['Inaba', 'Terrace Guard', 'yari', '#5a7a4a', '#ffd080'],
   ['Sakura', 'Petal Storm', 'shuriken', '#e080a0', '#fff0f6'], ['Yurei', 'Lantern Phantom', 'kusarigama', '#c8d0e0', '#60a0ff'],
   ['Kinme', 'Golden Ronin', 'katana', '#a07818', '#fff0a0'], ['Fubuki', 'Blizzard Fang', 'claws', '#e0e8f0', '#4080c0'],
   ['Kaji', 'Forge Titan', 'kanabo', '#6a2a10', '#ff7020'], ['Hoshi', 'Star Seer', 'yumi', '#20285a', '#c0c8ff'],
   ['Ame', 'Monsoon Blade', 'sai', '#3a5a6a', '#a0e0e0'], ['Ryujin', 'Jade Dragon', 'naginata', '#1a6a4a', '#80ffc0'],
   ['Yuki', 'Silent Snow', 'kunai', '#d8e0f0', '#8090c0'], ['Homura', 'Inferno Monk', 'tonfa', '#a02010', '#ffc040'],
-  ['Getsu', 'Eclipse Twin', 'kama', '#18181c', '#ff8040'], ['Kiri', 'Fog Assassin', 'blowgun', '#6a6a7a', '#d0d0ff'],
+  ['Getsu', 'Eclipse Twin', 'kama', '#18181c', '#ff8040'], ['Kiri', 'Fog Assassin', 'smoke', '#6a6a7a', '#d0d0ff'],
   ['Raijin', 'Thunder God', 'kanabo', '#30204a', '#a0e0ff'], ['Tenshi', 'Cloud Walker', 'tessen', '#e8e0f8', '#a080ff'],
   ['Yami', 'Void Stalker', 'claws', '#0c0610', '#8040ff'], ['Shinobi-Ou', 'The Shadow Master', 'katana', '#111116', '#ffd23f'],
 ];
@@ -240,7 +246,7 @@ function hit(a, d, dmg, kb, launch = 0, melee = true, dir = a.facing) {
 }
 
 function startSpecial(f) {
-  f.energy = 0; f.special = f.weapon; f.specT = 0; f.hasHit = false; f.block = false;
+  f.energy = 0; f.special = f.weapon; f.specT = 0; f.hasHit = false; f.block = false; f.dive = false;
   flashA = 0.45; sfx('special');
   pops.push({ x: f.x, y: f.y - 125, text: SPECIALS[f.weapon].toUpperCase(), t: 0, color: f.accent, big: true });
 }
@@ -344,6 +350,38 @@ function updateSpecial(f, o) {
       if (t === 10) { projs.push({ type: 'arrow', fire: true, x: f.x + f.facing * 25, y: f.y - 64, vx: f.facing * 20, vy: 0, owner: f, dmg: 24, kb: 12, launch: 6, life: 60 }); sfx('throw'); }
       if (t >= 22) endSpecial(f);
       break;
+    case 'odachi':
+      f.vx *= 0.7;
+      if (t === 8) {
+        projs.push({ type: 'crescent', x: f.x + f.facing * 40, y: f.y - 55, vx: f.facing * 13, vy: 0, owner: f, dmg: 20, kb: 10, launch: 6, life: 50 });
+        sfx('special'); if (inReach(f, o, 110)) hit(f, o, 10, 8, 4);
+      }
+      if (t >= 22) endSpecial(f);
+      break;
+    case 'smoke':
+      if (t === 1) {
+        smokePuff(f.x, f.y - 40); f.x = o.x - o.facing * 60; f.vx = 0;
+        f.facing = o.x >= f.x ? 1 : -1; smokePuff(f.x, f.y - 40); sfx('throw');
+      }
+      if (t === 7 && inReach(f, o, 80)) hit(f, o, 18, 8, 5);
+      if (t >= 16) endSpecial(f);
+      break;
+    case 'caltrops':
+      f.vx *= 0.8;
+      if (t === 3) { for (let i = 0; i < 8; i++) projs.push(caltrop(f, 3 + i * 1.1, -5 - Math.random() * 3)); sfx('throw'); }
+      if (t >= 14) endSpecial(f);
+      break;
+    case 'yari':
+      if (t === 1) { f.facing = o.x >= f.x ? 1 : -1; f.vy = -15; f.onGround = false; f.vx = clamp((o.x - f.x) / 40, -9, 9); }
+      if (t > 2 && f.vy > 0 && !f.dive) { f.dive = true; f.vy = 14; f.vx = f.facing * 6; sfx('swing'); }
+      if (f.dive && !f.hasHit && Math.abs(o.x - f.x) < 60 && Math.abs(o.y - f.y) < 90) { f.hasHit = true; hit(f, o, 24, 9, 8); }
+      if ((t > 4 && f.onGround) || t > 90) { f.dive = false; dust(f.x, GROUND, 16); shake = Math.max(shake, 8); endSpecial(f); }
+      break;
+    case 'hook':
+      f.vx *= 0.8;
+      if (t === 3) { projs.push({ type: 'hook', x: f.x + f.facing * 25, y: f.y - 58, vx: f.facing * 17, vy: 0, owner: f, dmg: 18, kb: 2, launch: 14, life: 30, pullTarget: true }); sfx('throw'); }
+      if (t >= 20) endSpecial(f);
+      break;
     case 'blowgun':
       f.vx *= 0.8;
       if (t === 2) { projs.push({ type: 'cloud', x: f.x + f.facing * 40, y: f.y - 50, vx: f.facing * 4, vy: 0, owner: f, life: 150, r: 10 }); sfx('throw'); }
@@ -357,7 +395,23 @@ function fireProj(f, w) {
   if (w.proj === 'dart') projs.push({ ...base, type: 'dart', y: f.y - 66, vx: f.facing * 14, poison: 150, life: 70 });
   else if (w.proj === 'kunai') projs.push({ ...base, type: 'kunai', y: f.y - 62, vx: f.facing * 15, life: 70 });
   else if (w.proj === 'arrow') projs.push({ ...base, type: 'arrow', y: f.y - 64, vx: f.facing * 19, life: 60 });
+  else if (w.proj === 'bomb') {
+    const o = f === player ? enemy : player, dist = o ? Math.abs(o.x - f.x) : 300;
+    projs.push({ ...base, type: 'bomb', y: f.y - 70, vx: f.facing * clamp(dist / 38, 3, 11), vy: -9, grav: 0.5, life: 120 });
+  } else if (w.proj === 'caltrop') projs.push(caltrop(f, 6, -6));
+  else if (w.proj === 'hook') projs.push({ ...base, type: 'hook', y: f.y - 58, vx: f.facing * 17, life: 26 });
   else projs.push({ ...base, type: 'shuriken', y: f.y - 60, vx: f.facing * 11, life: 90 });
+}
+function caltrop(f, sp, vy) {
+  return { type: 'caltrop', x: f.x + f.facing * 20, y: f.y - 50, vx: f.facing * sp, vy, grav: 0.5, owner: f, dmg: 5, kb: 1, life: 400, rot: 0 };
+}
+function smokePuff(x, y) {
+  for (let i = 0; i < 18; i++) parts.push({ x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 50, vx: (Math.random() - 0.5) * 1.5, vy: -0.3 - Math.random() * 0.6, life: 40, max: 40, color: 'rgba(150,150,165,0.55)', size: 8 + Math.random() * 10, grav: 0, round: true });
+}
+function explode(p, t) {
+  sparks(p.x, p.y - 10, '#ffb347', 16, 6); smokePuff(p.x, Math.min(p.y, GROUND - 20));
+  shake = Math.max(shake, 7); sfx('slam');
+  if (!t.dead && Math.abs(t.x - p.x) < 70 && t.y > GROUND - 160) hit(p.owner, t, p.dmg, p.kb, 4, false, Math.sign(t.x - p.x) || 1);
 }
 
 function updateFighter(f, c, o) {
@@ -428,7 +482,8 @@ function separate() {
 
 function updateProjs() {
   for (const p of projs) {
-    p.life--; p.x += p.vx; p.y += p.vy || 0; p.rot = (p.rot || 0) + 0.5;
+    if (p.grav) p.vy += p.grav;
+    p.life--; p.x += p.vx; p.y += p.vy || 0; p.rot = (p.rot || 0) + (p.landed ? 0 : 0.5);
     const t = p.owner === player ? enemy : player;
     if (p.type === 'cloud') {
       p.r = Math.min(70, p.r + 2); p.vx *= 0.98;
@@ -438,7 +493,20 @@ function updateProjs() {
       }
       continue;
     }
-    const thin = p.type === 'shuriken' || p.type === 'dart' || p.type === 'kunai' || p.type === 'arrow';
+    if (p.type === 'bomb') {
+      if (p.y >= GROUND - 6 || (!t.dead && Math.abs(p.x - t.x) < 20 && p.y > t.y - 92 && p.y < t.y)) { explode(p, t); p.life = 0; }
+      continue;
+    }
+    if (p.type === 'caltrop') {
+      if (!p.landed && p.y >= GROUND - 3) { p.landed = true; p.y = GROUND - 3; p.vx = p.vy = p.grav = 0; }
+      if (p.landed && !t.dead && t.onGround && Math.abs(t.x - p.x) < 18) {
+        t.block = false;
+        if (hit(p.owner, t, p.dmg, p.kb, 0, false, Math.sign(t.x - p.x) || 1)) t.slowT = 60;
+        p.life = 0;
+      }
+      continue;
+    }
+    const thin = p.type === 'shuriken' || p.type === 'dart' || p.type === 'kunai' || p.type === 'arrow' || p.type === 'hook';
     if (thin && !p.fire && t.weapon === 'tessen' && t.atk > 0 && !t.dead) {
       const tp = 1 - t.atk / t.atkDur;
       if (tp > 0.15 && tp < 0.85 && Math.abs(p.x - t.x) < 75 && Math.sign(p.vx) === Math.sign(t.x - p.x) && t.facing === Math.sign(p.x - t.x)) {
@@ -451,6 +519,7 @@ function updateProjs() {
     if (!t.dead) {
       let col = false;
       if (thin) col = Math.abs(p.x - t.x) < 20 && p.y > t.y - 92 && p.y < t.y + 4;
+      else if (p.type === 'crescent') col = Math.abs(p.x - t.x) < 36 && Math.abs(p.y - (t.y - 50)) < 70;
       else if (p.type === 'gust') col = Math.abs(p.x - t.x) < 40 && Math.abs(p.y - (t.y - 50)) < 90;
       else if (p.type === 'wave') col = Math.abs(p.x - t.x) < 32 && t.y > GROUND - 40;
       else if (p.type === 'chain') col = Math.abs(p.x - t.x) < 26 && Math.abs(p.y - (t.y - 50)) < 55;
@@ -458,6 +527,10 @@ function updateProjs() {
         const dir = Math.sign(p.vx) || 1;
         const landed = hit(p.owner, t, p.dmg, p.kb, p.launch || 0, false, dir);
         if (p.poison && landed) t.poison = Math.max(t.poison || 0, p.poison);
+        if (p.type === 'hook' && landed && !t.dead) {
+          if (p.pullTarget) t.vx = -dir * 12;
+          else { const o = p.owner; o.vx = dir * 15; o.vy = -5; o.onGround = false; }
+        }
         if (p.type === 'chain' && landed && !t.dead) { t.vx = -dir * 15; t.vy = -4; t.onGround = false; t.stun = 30; }
         p.life = 0;
       }
@@ -477,7 +550,7 @@ function aiControl(f, o, S) {
   const dx = o.x - f.x, dist = Math.abs(dx), dir = Math.sign(dx) || 1;
   if (S.switcher && f.atk === 0 && !f.special && ai.think % 45 === 0) {
     const pick = a => a[Math.random() * a.length | 0];
-    c.weapon = dist > 280 ? pick(['shuriken', 'blowgun', 'kunai', 'yumi']) : dist > 140 ? pick(['kusarigama', 'naginata', 'tessen']) : pick(['katana', 'bo', 'tonfa', 'sai', 'claws', 'kama', 'kanabo']);
+    c.weapon = dist > 280 ? pick(['shuriken', 'blowgun', 'kunai', 'yumi', 'smoke', 'caltrops', 'hook']) : dist > 140 ? pick(['kusarigama', 'naginata', 'tessen', 'yari', 'odachi']) : pick(['katana', 'bo', 'tonfa', 'sai', 'claws', 'kama', 'kanabo']);
   }
   const w = WEAPONS[c.weapon || f.weapon];
   if (ai.blockT > 0) { ai.blockT--; c.block = true; return c; }
@@ -1346,7 +1419,8 @@ function leash(px, ex) {
 // ---------- Drawing: ninjas & weapons ----------
 const REST = { katana: [0.5, -1.0], nunchaku: [0.9, -0.5], bo: [0.5, -0.25], kusarigama: [0.8, -1.0], shuriken: [1.1, 0],
   sai: [0.8, -0.2], tonfa: [0.9, -0.6], naginata: [0.5, -0.9], claws: [0.6, -0.1], blowgun: [0.3, -0.1],
-  kunai: [1.0, -0.3], kama: [0.6, -1.2], tessen: [0.8, -1.0], kanabo: [0.3, -1.4], yumi: [0.0, 0] };
+  kunai: [1.0, -0.3], kama: [0.6, -1.2], tessen: [0.8, -1.0], kanabo: [0.3, -1.4], yumi: [0.0, 0],
+  odachi: [0.2, -1.3], smoke: [1.0, 0], caltrops: [1.0, 0], yari: [0.4, -0.15], hook: [0.9, -0.3] };
 function sw(p, rest, a, b) {
   if (p < 0.3) return lerp(rest, a, ease(p / 0.3));
   if (p < 0.7) return lerp(a, b, ease((p - 0.3) / 0.4));
@@ -1376,6 +1450,11 @@ function pose(f) {
       case 'tessen': arm = 0.2; wpn = -0.5; lean = 3; break;
       case 'kanabo': if (t < 20) { arm = -2.6; wpn = -2.4; lean = -3; } else { arm = 1.1; wpn = 1.0; lean = 8; } break;
       case 'yumi': arm = 0; wpn = 0; back = Math.PI; break;
+      case 'odachi': arm = t < 8 ? -2.4 : 1.0; wpn = arm - 0.2; lean = t < 8 ? -3 : 7; break;
+      case 'smoke': arm = -1.2; wpn = 0; break;
+      case 'caltrops': arm = 0.2; wpn = 0; lean = 3; break;
+      case 'yari': if (f.dive) { arm = 0.9; wpn = 1.0; } else { arm = -1.6; wpn = -1.4; } break;
+      case 'hook': arm = -0.3; wpn = -0.2; lean = 3; break;
     }
   } else if (f.atk > 0) {
     const p = 1 - f.atk / f.atkDur;
@@ -1395,6 +1474,11 @@ function pose(f) {
       case 'tessen': arm = sw(p, arm, -1.4, 0.9); wpn = arm - 0.8; break;
       case 'kanabo': arm = sw(p, arm, -2.6, 1.2); wpn = arm - 0.1; lean = p > 0.3 && p < 0.8 ? 8 : -2; break;
       case 'yumi': arm = 0; wpn = 0; back = p < 0.4 ? Math.PI : 2.4; lean = p < 0.4 ? -2 : 0; break;
+      case 'odachi': arm = sw(p, arm, -2.6, 1.3); wpn = arm - 0.2; lean = p > 0.3 && p < 0.8 ? 7 : -2; break;
+      case 'smoke': arm = sw(p, arm, -2.4, -0.3); wpn = arm; break;
+      case 'caltrops': arm = sw(p, arm, 1.6, -0.4); wpn = arm; break;
+      case 'yari': arm = sw(p, arm, 0.9, -0.02); wpn = sw(p, wpn, -0.4, 0); lean = p > 0.3 && p < 0.75 ? 8 : 0; break;
+      case 'hook': arm = sw(p, arm, -2.4, -0.2); wpn = arm; break;
     }
   } else if (f.block) { arm = -0.5; wpn = -1.55; back = -0.4; }
   return { arm, wpn, back, lean };
@@ -1414,6 +1498,23 @@ function drawKunai() {
   ctx.strokeStyle = '#3b2412'; ctx.lineWidth = 3; line(-6, 0, 4, 0);
   ctx.strokeStyle = '#9aa0a8'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(-9, 0, 3, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = '#d4dbe4'; ctx.beginPath(); ctx.moveTo(4, -3.5); ctx.lineTo(22, 0); ctx.lineTo(4, 3.5); ctx.closePath(); ctx.fill();
+}
+
+function drawBomb(x, y) {
+  ctx.fillStyle = '#1e1e22'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(x - 2, y - 2, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#a08060'; ctx.lineWidth = 1.5; line(x + 4, y - 5, x + 8, y - 10);
+  ctx.fillStyle = Math.random() < 0.5 ? '#ffd23f' : '#ff7a2a'; ctx.beginPath(); ctx.arc(x + 8, y - 10, 2, 0, Math.PI * 2); ctx.fill();
+}
+function drawCaltrop(x, y, r) {
+  ctx.strokeStyle = '#9aa0a8'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (const a of [-Math.PI / 2, Math.PI / 6, Math.PI * 5 / 6]) line(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r);
+  line(x, y, x + r * 0.3, y + r * 0.5);
+}
+function drawHook(x, y) {
+  ctx.strokeStyle = '#b8bec6'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  line(x - 4, y, x + 6, y);
+  for (const sd of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(x + 6, y); ctx.quadraticCurveTo(x + 14, y + sd * 9, x + 8, y + sd * 12 + (sd ? 0 : 8)); ctx.stroke(); }
 }
 
 function drawWeapon(k, f) {
@@ -1497,6 +1598,30 @@ function drawWeapon(k, f) {
       ctx.fillStyle = '#a8aeb6';
       for (let x = 18; x <= 50; x += 8) for (const y of [-1, 1]) { ctx.beginPath(); ctx.arc(x, y * (3 + (x - 10) * 0.1), 1.6, 0, Math.PI * 2); ctx.fill(); }
       break;
+    case 'odachi':
+      ctx.save(); ctx.scale(1.55, 1.15); drawWeapon('katana', f); ctx.restore();
+      ctx.strokeStyle = '#2b1a10'; ctx.lineWidth = 5; line(-22, 0, -10, 0);
+      break;
+    case 'smoke':
+      if (f.atk > 0 && f.hasHit) break;
+      drawBomb(8, 0);
+      break;
+    case 'caltrops':
+      if (f.atk > 0 && f.hasHit) break;
+      drawCaltrop(6, 0, 6);
+      break;
+    case 'yari':
+      ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 4; line(-40, 0, 90, 0);
+      ctx.fillStyle = '#d4dbe4';
+      ctx.beginPath(); ctx.moveTo(88, -4); ctx.lineTo(120, 0); ctx.lineTo(88, 4); ctx.closePath(); ctx.fill();
+      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(90, 0); ctx.quadraticCurveTo(92, sd * 14, 102, sd * 16); ctx.lineTo(96, sd * 9); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = '#c9a227'; ctx.fillRect(84, -3, 5, 6);
+      break;
+    case 'hook':
+      ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 2;
+      for (const r of [5, 8]) { ctx.beginPath(); ctx.arc(0, 4, r, 0, Math.PI * 2); ctx.stroke(); }
+      drawHook(10, 0);
+      break;
     case 'yumi': {
       const pulling = f.special === 'yumi' ? f.specT < 10 : f.atk > 0 && !f.hasHit;
       ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 3;
@@ -1575,10 +1700,10 @@ function drawNinja(f, alpha = 1) {
     }
   }
   // swing trail
-  if (f.atk > 0 && !w.ranged && f.weapon !== 'kusarigama') {
+  if (f.atk > 0 && !w.ranged && f.weapon !== 'kusarigama' && f.weapon !== 'yari') {
     const p = 1 - f.atk / f.atkDur;
     if (p > 0.3 && p < 0.75) {
-      const r = { bo: 90, katana: 78, naginata: 125, tonfa: 58, sai: 60, kama: 62, tessen: 62, kanabo: 75 }[f.weapon] || 52;
+      const r = { odachi: 130, bo: 90, katana: 78, naginata: 125, tonfa: 58, sai: 60, kama: 62, tessen: 62, kanabo: 75 }[f.weapon] || 52;
       ctx.strokeStyle = `rgba(255,255,255,${f.weapon === 'katana' ? 0.4 : 0.25})`; ctx.lineWidth = 12;
       ctx.beginPath(); ctx.arc(sx, sy, r, P.wpn - 1.1, P.wpn); ctx.stroke();
     }
@@ -1609,6 +1734,20 @@ function drawProjs() {
     if (p.type === 'shuriken') {
       ctx.fillStyle = 'rgba(220,230,255,0.15)'; ctx.beginPath(); ctx.arc(p.x - p.vx, p.y - (p.vy || 0), 10, 0, Math.PI * 2); ctx.fill();
       drawStar(p.x, p.y, 9, p.rot);
+    } else if (p.type === 'bomb') {
+      drawBomb(p.x, p.y);
+    } else if (p.type === 'caltrop') {
+      drawCaltrop(p.x, p.y, 7);
+    } else if (p.type === 'hook') {
+      const o = p.owner;
+      ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 2; line(o.x + o.facing * 18, o.y - 55, p.x, p.y);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(Math.sign(p.vx), 1); drawHook(0, 0); ctx.restore();
+    } else if (p.type === 'crescent') {
+      const d = Math.sign(p.vx), a = Math.min(1, p.life / 12);
+      ctx.save(); ctx.shadowColor = 'rgba(140,200,255,0.9)'; ctx.shadowBlur = 16;
+      ctx.strokeStyle = `rgba(220,240,255,${a})`; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(p.x - d * 22, p.y, 42, d > 0 ? -1.1 : Math.PI - 1.1, d > 0 ? 1.1 : Math.PI + 1.1); ctx.stroke();
+      ctx.restore();
     } else if (p.type === 'kunai' || p.type === 'arrow') {
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy || 0, p.vx));
       if (p.type === 'kunai') { ctx.translate(-10, 0); drawKunai(); }
@@ -1651,7 +1790,9 @@ function drawProjs() {
 function drawParts() {
   for (const p of parts) {
     ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
-    ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    ctx.fillStyle = p.color;
+    if (p.round) { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - p.life / p.max * 0.6), 0, Math.PI * 2); ctx.fill(); }
+    else ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'center';
@@ -1689,7 +1830,7 @@ function drawBar(x, y, w, f, right) {
 }
 
 function slotLayout() {
-  const n = ORDER.length, sw = 50, sh = 46, gap = 5, total = n * sw + (n - 1) * gap;
+  const n = ORDER.length, sw = 42, sh = 42, gap = 4, total = n * sw + (n - 1) * gap;
   return { n, sw, sh, gap, x0: (W - total) / 2, y0: H - sh - 12 };
 }
 function drawWeaponSlots() {
@@ -1697,13 +1838,14 @@ function drawWeaponSlots() {
   const icon = { accent: '#ffd23f', atk: 0, atkDur: 1, special: null, hasHit: false };
   const fit = { katana: [0.55, 27], nunchaku: [0.8, 14], bo: [0.42, 12], kusarigama: [0.85, 14], shuriken: [1.4, 6],
     sai: [0.85, 17], tonfa: [0.75, 10], naginata: [0.33, 36], claws: [1.3, 9], blowgun: [0.65, 19],
-    kunai: [1.2, 8], kama: [0.85, 14], tessen: [0.9, 14], kanabo: [0.55, 24], yumi: [0.5, -2] };
+    kunai: [1.2, 8], kama: [0.85, 14], tessen: [0.9, 14], kanabo: [0.55, 24], yumi: [0.5, -2],
+    odachi: [0.36, 40], smoke: [1.3, 8], caltrops: [1.5, 6], yari: [0.3, 40], hook: [1.0, 8] };
   for (let i = 0; i < n; i++) {
     const k = ORDER[i], x = x0 + i * (sw + gap), sel = player.weapon === k;
     ctx.fillStyle = sel ? 'rgba(255,210,63,0.22)' : 'rgba(0,0,0,0.55)';
     ctx.strokeStyle = sel ? '#ffd23f' : 'rgba(255,255,255,0.22)'; ctx.lineWidth = sel ? 2.5 : 1;
     ctx.beginPath(); ctx.roundRect(x, y0, sw, sh, 8); ctx.fill(); ctx.stroke();
-    ctx.save(); ctx.translate(x + sw / 2, y0 + sh / 2 + 2); ctx.rotate(-0.7); ctx.scale(fit[k][0] * 0.9, fit[k][0] * 0.9); ctx.translate(-fit[k][1], 0);
+    ctx.save(); ctx.translate(x + sw / 2, y0 + sh / 2 + 2); ctx.rotate(-0.7); ctx.scale(fit[k][0] * 0.78, fit[k][0] * 0.78); ctx.translate(-fit[k][1], 0);
     drawWeapon(k, icon); ctx.restore();
     ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = sel ? '#ffd23f' : 'rgba(255,255,255,0.6)';
     ctx.fillText(KEYS[i].toUpperCase(), x + 5, y0 + 14);
@@ -1726,7 +1868,7 @@ function drawHUD() {
   if (!isTouch && STATE.stage === 0) {
     ctx.textAlign = 'left'; ctx.font = '12px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.fillText('A/D move · W jump · J attack', 30, 112);
-    ctx.fillText('K block · L special · 1-0, R-I / Q E / click slots', 30, 128);
+    ctx.fillText('K block · L special · 1-0, R-I, O P F G H / Q E / click slots', 30, 128);
   }
 }
 
@@ -1950,13 +2092,13 @@ function drawTitle() {
   ctx.fillStyle = 'rgba(0,0,0,0.62)'; ctx.fillRect(0, 0, W, H);
   drawShadow(demoA); drawShadow(demoB); drawNinja(demoA); drawNinja(demoB);
   drawLogo();
-  smallText(`Master fifteen ninja weapons. Defeat ${STAGES.length} rivals across ${TOWNS.length} towns.`, 238, 18, 'rgba(255,255,255,0.8)');
+  smallText(`Master twenty ninja weapons. Defeat ${STAGES.length} rivals across ${TOWNS.length} towns.`, 238, 18, 'rgba(255,255,255,0.8)');
   const rows = isTouch
     ? ['◀ ▶ move · ▲ jump · ⚔ attack · 🛡 block · ★ special · ⟳ switch weapon']
     : ['MOVE  A / D     JUMP  W     ATTACK  J     BLOCK  K     SPECIAL  L',
-       '1 Katana · 2 Nunchaku · 3 Bo Staff · 4 Kusarigama · 5 Shuriken',
-       '6 Sai · 7 Tonfa · 8 Naginata · 9 Tekko-kagi · 0 Fukiya',
-       'R Kunai · T Twin Kama · Y Tessen · U Kanabo · I Yumi Bow   (Q / E cycle, or click a slot)'];
+       '1 Katana · 2 Nunchaku · 3 Bo · 4 Kusarigama · 5 Shuriken · 6 Sai · 7 Tonfa',
+       '8 Naginata · 9 Tekko-kagi · 0 Fukiya · R Kunai · T Twin Kama · Y Tessen · U Kanabo',
+       'I Yumi · O Ōdachi · P Kemuridama · F Tetsubishi · G Yari · H Kaginawa   (Q / E cycle, or click a slot)'];
   rows.forEach((r, i) => smallText(r, 262 + i * 21, 14, 'rgba(255,255,255,0.75)'));
   smallText('Land hits to charge your special. Blocking cuts damage but roots you in place.', 350, 13, 'rgba(255,255,255,0.55)');
   smallText(`${WEAPONS[demoA.weapon].name}  vs  ${WEAPONS[demoB.weapon].name}`, 500, 14, 'rgba(255,210,63,0.8)');
