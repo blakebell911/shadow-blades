@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Shadow Blades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Cinzel:wght@700&family=Yuji+Boku&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;height:100%;background:#07070d;overflow:hidden;font-family:system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
@@ -574,6 +577,7 @@ function update() {
         demoB.weapon = ORDER[(frame / 120 + 5) % ORDER.length];
       }
       setTown(0);
+      updateLogo();
       camX += 1.5;
       if (go) { initAudio(); player = null; openMap(); }
       break;
@@ -591,7 +595,7 @@ function update() {
       }
       setTown(STATE.pick);
       camX += 1.2;
-      if (pressed.escape) { STATE.s = 'title'; break; }
+      if (pressed.escape) { STATE.s = 'title'; logo.t = 0; logo.drops = []; break; }
       if (start) {
         if (STATE.pick < progress.unlocked) { player = null; startStage(STATE.pick); }
         else sfx('block');
@@ -1794,26 +1798,172 @@ function drawMap() {
   smallText(`${cleared} / ${STAGES.length} cleared  ·  ★ ${stars} / ${STAGES.length * 3}`, 526, 13, 'rgba(255,255,255,0.75)');
 }
 
+// ---------- Title logo: gritty spray-paint on a black airbrushed plank sign ----------
+const LOGO_H = 250, LOGO_BASE = 150;
+const logo = { built: false, t: 0, sliceT: -1, drips: [], drops: [], mouths: [] };
+const logoFont = s => `${s}px Anton, Impact, "Arial Narrow", sans-serif`;
+function logoCanvas() {
+  const c = document.createElement('canvas'); c.width = W * dpr; c.height = LOGO_H * dpr;
+  const b = c.getContext('2d'); b.scale(dpr, dpr); return [c, b];
+}
+function buildLogo() {
+  const rnd = mkRnd(4242), cx = W / 2, txt = 'SHADOW BLADES';
+  // Black airbrushed patch with dry-brush edges and plank seams.
+  const [pc, pb] = logoCanvas();
+  for (let y = 26; y < 222; y += 3) {
+    const edge = Math.min(1, (y - 26) / 30, (222 - y) / 30), hw = (330 + rnd() * 50) * (0.75 + 0.25 * edge);
+    pb.strokeStyle = `rgba(0,0,0,${0.5 + rnd() * 0.25})`; pb.lineWidth = 4; ln(pb, cx - hw, y, cx + hw, y);
+    for (const d of [-1, 1]) for (let k = 0; k < 3; k++) {
+      const x0 = cx + d * hw, len = 20 + rnd() * 90, off = (rnd() - 0.5) * 2;
+      pb.strokeStyle = `rgba(0,0,0,${0.12 + rnd() * 0.3})`; pb.lineWidth = 1 + rnd() * 2; ln(pb, x0, y + off, x0 + d * len, y + off);
+    }
+  }
+  pb.save(); pb.globalCompositeOperation = 'source-atop';
+  for (let y = 44; y < 222; y += 38) { pb.fillStyle = 'rgba(255,235,210,0.08)'; pb.fillRect(0, y, W, 2); pb.fillStyle = 'rgba(0,0,0,0.5)'; pb.fillRect(0, y + 2, W, 2); }
+  for (let k = 0; k < 90; k++) { pb.fillStyle = 'rgba(255,230,200,0.04)'; pb.fillRect(rnd() * W, 26 + rnd() * 196, 30 + rnd() * 120, 1); }
+  pb.restore();
+
+  // Lettering: hot orange-red spray paint with dark edges, grime, scratches and plank gaps.
+  const [tc, tb] = logoCanvas(), [gc, gb] = logoCanvas();
+  let size = 124; tb.font = logoFont(size);
+  while (tb.measureText(txt).width > 700 && size > 50) { size -= 4; tb.font = logoFont(size); }
+  const tw = tb.measureText(txt).width;
+  tb.textAlign = 'center'; tb.textBaseline = 'alphabetic';
+  const rg = tb.createRadialGradient(cx, LOGO_BASE - size * 0.4, 20, cx, LOGO_BASE - size * 0.4, 380);
+  rg.addColorStop(0, '#ff9a4a'); rg.addColorStop(0.45, '#f2481c'); rg.addColorStop(1, '#a8140a');
+  tb.fillStyle = rg; tb.fillText(txt, cx, LOGO_BASE);
+  tb.save(); tb.globalCompositeOperation = 'source-atop';
+  tb.lineWidth = 7; tb.strokeStyle = 'rgba(90,0,0,0.75)'; tb.strokeText(txt, cx, LOGO_BASE);
+  for (let k = 0; k < 260; k++) {
+    tb.fillStyle = `rgba(${rnd() < 0.7 ? '70,0,0' : '255,170,90'},${0.12 + rnd() * 0.3})`;
+    tb.beginPath(); tb.arc(rnd() * W, LOGO_BASE - size + rnd() * size * 1.05, 1 + rnd() * 4, 0, Math.PI * 2); tb.fill();
+  }
+  tb.strokeStyle = 'rgba(60,0,0,0.35)'; tb.lineWidth = 1;
+  for (let k = 0; k < 70; k++) { const x = rnd() * W, y = LOGO_BASE - size + rnd() * size; ln(tb, x, y, x + (rnd() - 0.5) * 30, y + (rnd() - 0.5) * 30); }
+  for (let y = 44; y < 222; y += 38) { tb.fillStyle = 'rgba(0,0,0,0.85)'; tb.fillRect(0, y, W, 3); }
+  tb.restore();
+  tb.save(); tb.globalCompositeOperation = 'destination-out';
+  for (let k = 0; k < 500; k++) { tb.fillStyle = `rgba(0,0,0,${rnd() * 0.8})`; tb.fillRect(rnd() * W, LOGO_BASE - size + rnd() * size * 1.05, 1 + rnd() * 2.5, 1 + rnd() * 2.5); }
+  tb.restore();
+
+  // Find where drips can start: the lowest painted pixel of each column of the lettering.
+  const data = tb.getImageData(0, 0, tc.width, tc.height).data, mouths = [];
+  for (let x = cx - tw / 2; x < cx + tw / 2; x += 2) {
+    const px = Math.round(x * dpr);
+    for (let y = LOGO_BASE + 6; y > LOGO_BASE - 40; y--) if (data[(Math.round(y * dpr) * tc.width + px) * 4 + 3] > 180) { mouths.push({ x, y }); break; }
+  }
+
+  // Spray-paint dashes and the serif tagline.
+  const dashes = (x0, x1, y) => {
+    for (let x = x0; x < x1;) { const len = 14 + rnd() * 46; tb.beginPath(); tb.ellipse(x + len / 2, y, len / 2, 3.2, 0, 0, Math.PI * 2); tb.fill(); x += len + 10 + rnd() * 26; }
+  };
+  tb.fillStyle = '#ff7a3a'; tb.shadowColor = 'rgba(255,110,40,0.9)'; tb.shadowBlur = 12;
+  dashes(cx - 60, cx + tw / 2 - 10, LOGO_BASE - size * 0.95 - 10);
+  dashes(cx - tw / 2 + 10, cx - 30, LOGO_BASE + 34);
+  tb.textAlign = 'right'; tb.fillStyle = '#d42a18'; tb.shadowColor = 'rgba(0,0,0,0.8)'; tb.shadowBlur = 4;
+  tb.font = '700 24px Cinzel, "Trajan Pro", Georgia, serif'; tb.fillText('WAY OF THE BLADE', cx + tw / 2, LOGO_BASE + 44);
+  const tagW = tb.measureText('WAY OF THE BLADE').width;
+  tb.font = '28px "Yuji Boku", "Hiragino Mincho ProN", serif'; tb.fillText('影刃', cx + tw / 2 - tagW - 14, LOGO_BASE + 45);
+  tb.shadowBlur = 0;
+
+  // Airbrush glow halo, drawn separately so it can flicker.
+  gb.font = logoFont(size); gb.textAlign = 'center'; gb.shadowColor = 'rgba(255,90,20,1)'; gb.shadowBlur = 40;
+  gb.fillStyle = 'rgba(255,90,20,0.7)'; gb.fillText(txt, cx, LOGO_BASE); gb.fillText(txt, cx, LOGO_BASE);
+
+  Object.assign(logo, { built: true, patch: pc, text: tc, glow: gc, mouths, drips: [], drops: [] });
+  if (!mouths.length) return;
+  for (let k = 0; k < 9; k++) logo.drips.push(newDrip());
+  const m = mouths[Math.floor(mouths.length * 0.32)];
+  logo.drips.push({ x: m.x, y: m.y - 1, len: 0, max: 95, sp: 0.25, w: 2.4, wait: 60, sticky: true });
+}
+function newDrip() {
+  const m = logo.mouths[Math.floor(Math.random() * logo.mouths.length)];
+  return { x: m.x, y: m.y - 1, len: 0, max: 8 + Math.random() * 34, sp: 0.12 + Math.random() * 0.3, w: 1.6 + Math.random() * 2.6, wait: Math.random() * 240 };
+}
+const LOGO_SLICE = { a: -0.1, cx: W / 2, cy: LOGO_BASE - 45 };
+function updateLogo() {
+  if (!logo.built) return;
+  const t = ++logo.t, revX = W / 2 - 380 + t * 22;
+  if (revX < W / 2 + 380) for (let k = 0; k < 6; k++) logo.drops.push({ x: revX + (Math.random() - 0.5) * 20, y: 60 + Math.random() * 110, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, r: 1 + Math.random() * 2, life: 20, spray: true });
+  for (const d of logo.drips) {
+    if (d.wait > 0) { d.wait--; continue; }
+    d.len += d.sp;
+    if (d.len <= d.max) continue;
+    if (d.sticky) { d.len = d.max; if (Math.random() < 0.01) logo.drops.push({ x: d.x, y: d.y + d.len, vx: 0, vy: 0.5, r: d.w * 0.8 }); }
+    else { logo.drops.push({ x: d.x, y: d.y + d.len, vx: 0, vy: 1, r: d.w * 0.85 }); Object.assign(d, newDrip()); }
+  }
+  for (const p of logo.drops) { if (!p.spray) p.vy += 0.3; p.x += p.vx; p.y += p.vy; if (p.life !== undefined) p.life--; }
+  logo.drops = logo.drops.filter(p => p.y < H && (p.life === undefined || p.life > 0));
+  if (logo.sliceT < 0 && t > 90 && t % 420 === 0) logo.sliceT = 0;
+  if (logo.sliceT >= 0) {
+    const s = ++logo.sliceT, { a, cx, cy } = LOGO_SLICE;
+    if (s === 2) sfx('swing');
+    if (s === 5) for (let k = 0; k < 60; k++) {
+      const d = (Math.random() - 0.5) * 700;
+      logo.drops.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 5, r: 1 + Math.random() * 2.5 });
+    }
+    if (s > 44) logo.sliceT = -1;
+  }
+}
+function drawLogo() {
+  if (!logo.built) buildLogo();
+  const t = logo.t, revX = W / 2 - 380 + t * 22, s = logo.sliceT, { a, cx, cy } = LOGO_SLICE;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const split = s >= 6 ? Math.sin(Math.min(1, (s - 6) / 34) * Math.PI) * 12 : 0;
+  const flick = 0.55 + Math.sin(frame * 0.07) * 0.12 + Math.random() * 0.12;
+  ctx.save(); ctx.globalAlpha = Math.min(1, t / 20); ctx.drawImage(logo.patch, 0, 0, W, LOGO_H); ctx.restore();
+  const piece = side => {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, revX, LOGO_H); ctx.clip();
+    if (side) {
+      ctx.beginPath(); ctx.moveTo(cx - dx * 1000, cy - dy * 1000); ctx.lineTo(cx + dx * 1000, cy + dy * 1000);
+      ctx.lineTo(cx + dx * 1000, cy + dy * 1000 + side * 1000); ctx.lineTo(cx - dx * 1000, cy - dy * 1000 + side * 1000); ctx.closePath(); ctx.clip();
+      ctx.translate(-side * dx * split, -side * dy * split + side * 2);
+    }
+    ctx.globalAlpha = flick; ctx.drawImage(logo.glow, 0, 0, W, LOGO_H);
+    ctx.globalAlpha = 1; ctx.drawImage(logo.text, 0, 0, W, LOGO_H);
+    ctx.restore();
+  };
+  if (split) { piece(-1); piece(1); } else piece(0);
+  if (s >= 0 && s < 10) {
+    ctx.save(); ctx.strokeStyle = `rgba(255,255,255,${1 - s / 10})`; ctx.lineWidth = 13 - s;
+    ctx.shadowColor = 'rgba(255,60,40,0.9)'; ctx.shadowBlur = 20;
+    line(cx - dx * 480, cy - dy * 480, cx + dx * 480, cy + dy * 480); ctx.restore();
+  }
+  if (revX > W / 2 + 380) for (const d of logo.drips) {
+    if (d.len < 0.5) continue;
+    ctx.fillStyle = '#8e0c06'; ctx.fillRect(d.x - d.w / 2, d.y, d.w, d.len);
+    ctx.beginPath(); ctx.arc(d.x, d.y + d.len, d.w * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,140,110,0.35)'; ctx.fillRect(d.x - d.w / 2 + 0.4, d.y, 0.8, d.len);
+  }
+  for (const p of logo.drops) {
+    ctx.fillStyle = p.spray ? `rgba(255,110,40,${p.life / 20})` : '#8e0c06';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+if (document.fonts) {
+  Promise.all([document.fonts.load(logoFont(124), 'SHADOW'), document.fonts.load('700 24px Cinzel', 'WAY'), document.fonts.load('28px "Yuji Boku"', '影刃')])
+    .then(() => { logo.built = false; }).catch(() => {});
+}
+
 function drawTitle() {
   ctx.fillStyle = 'rgba(0,0,0,0.62)'; ctx.fillRect(0, 0, W, H);
   drawShadow(demoA); drawShadow(demoB); drawNinja(demoA); drawNinja(demoB);
-  const g = ctx.createLinearGradient(0, 70, 0, 150);
-  g.addColorStop(0, '#ffe08a'); g.addColorStop(1, '#ff5a3c');
-  bigText('SHADOW BLADES', 135, 92, g, 'rgba(255,90,60,0.7)');
-  smallText(`Master fifteen ninja weapons. Defeat ${STAGES.length} rivals across ${TOWNS.length} towns.`, 175, 20, 'rgba(255,255,255,0.8)');
+  drawLogo();
+  smallText(`Master fifteen ninja weapons. Defeat ${STAGES.length} rivals across ${TOWNS.length} towns.`, 238, 18, 'rgba(255,255,255,0.8)');
   const rows = isTouch
     ? ['◀ ▶ move · ▲ jump · ⚔ attack · 🛡 block · ★ special · ⟳ switch weapon']
     : ['MOVE  A / D     JUMP  W     ATTACK  J     BLOCK  K     SPECIAL  L',
        '1 Katana · 2 Nunchaku · 3 Bo Staff · 4 Kusarigama · 5 Shuriken',
        '6 Sai · 7 Tonfa · 8 Naginata · 9 Tekko-kagi · 0 Fukiya',
        'R Kunai · T Twin Kama · Y Tessen · U Kanabo · I Yumi Bow   (Q / E cycle, or click a slot)'];
-  rows.forEach((r, i) => smallText(r, 220 + i * 26, 15, 'rgba(255,255,255,0.75)'));
-  smallText('Land hits to charge your special. Blocking cuts damage but roots you in place.', 328, 14, 'rgba(255,255,255,0.55)');
+  rows.forEach((r, i) => smallText(r, 262 + i * 21, 14, 'rgba(255,255,255,0.75)'));
+  smallText('Land hits to charge your special. Blocking cuts damage but roots you in place.', 350, 13, 'rgba(255,255,255,0.55)');
   smallText(`${WEAPONS[demoA.weapon].name}  vs  ${WEAPONS[demoB.weapon].name}`, 500, 14, 'rgba(255,210,63,0.8)');
-  if ((frame >> 5) % 2 === 0) smallText(isTouch ? 'TAP TO BEGIN' : 'PRESS ENTER FOR THE STAGE MAP', 412, 22, '#ffd23f');
+  if ((frame >> 5) % 2 === 0) smallText(isTouch ? 'TAP TO BEGIN' : 'PRESS ENTER FOR THE STAGE MAP', 414, 22, '#ffd23f');
   const cleared = Object.keys(progress.stars).length;
   ctx.font = 'bold 17px Georgia, serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  ctx.fillText(`${STAGES.length} stages  ·  ${cleared} cleared  ·  every 5th stage is a boss`, W / 2, 366);
+  ctx.fillText(`${STAGES.length} stages  ·  ${cleared} cleared  ·  every 5th stage is a boss`, W / 2, 378);
 }
 
 function render() {
@@ -1858,6 +2008,7 @@ function resize() {
   const s = Math.min(innerWidth / W, innerHeight / H);
   cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
   if (townIdx >= 0) { const i = townIdx; townIdx = -1; setTown(i); } else setTown(0);
+  logo.built = false;
 }
 addEventListener('resize', resize);
 resize();
