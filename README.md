@@ -6,7 +6,9 @@ A stages game: battle through **38 stages**, each set in its own endless, loopin
 
 ## Play
 
-Open `index.html` in a browser, or serve the folder:
+**Play online: https://blakebell911.github.io/shadow-blades/**
+
+Or open `index.html` in a browser, or serve the folder:
 
 ```bash
 python3 -m http.server 5210
