@@ -61,9 +61,41 @@ const STAGES = [
   { name: 'Tsukiko', title: 'Moon Archer',      weapon: 'yumi',       color: '#b8b0cc', accent: '#7a6aff', hp: 150, aggr: 0.15, block: 0.5,  dodge: 0.65, speed: 1.1 },
   { name: 'Kuro',    title: 'The Last Shogun',  weapon: 'naginata',   color: '#141018', accent: '#c040ff', hp: 200, aggr: 0.17, block: 0.55, dodge: 0.7,  speed: 1.15, switcher: true },
 ];
+STAGES[2].boss = STAGES[7].boss = true;
+const MORE_RIVALS = [
+  ['Mizu', 'Koi Spirit', 'nunchaku', '#2a6a9a', '#9fd8ff'], ['Akane', 'Crimson Warlord', 'katana', '#8a1010', '#ffb000'],
+  ['Sugi', 'Cedar Hermit', 'bo', '#4a6a3a', '#c8e0a0'], ['Hotaru', 'Lantern Dancer', 'tessen', '#d07a20', '#ffe0a0'],
+  ['Koori', 'Frost Monk', 'sai', '#6a8ab0', '#e0f0ff'], ['Raiden', 'Thunder Fist', 'tonfa', '#3a3a6a', '#ffe040'],
+  ['Ume', 'Plum Empress', 'naginata', '#a0306a', '#ffd0e8'], ['Hai', 'Ash Wraith', 'claws', '#4a4a4a', '#c8c8c8'],
+  ['Asahi', 'Dawn Blade', 'katana', '#d06030', '#fff0b0'], ['Take', 'Bamboo Viper', 'kusarigama', '#2a5a2a', '#a0ff80'],
+  ['Arashi', 'Storm Sailor', 'kunai', '#2a4a6a', '#80c0ff'], ['Chiyo', 'Blood Moon Queen', 'kama', '#5a0a14', '#ff4060'],
+  ['Fuji', 'Wisteria Ghost', 'blowgun', '#7a5aa8', '#e0c8ff'], ['Inaba', 'Terrace Guard', 'bo', '#5a7a4a', '#ffd080'],
+  ['Sakura', 'Petal Storm', 'shuriken', '#e080a0', '#fff0f6'], ['Yurei', 'Lantern Phantom', 'kusarigama', '#c8d0e0', '#60a0ff'],
+  ['Kinme', 'Golden Ronin', 'katana', '#a07818', '#fff0a0'], ['Fubuki', 'Blizzard Fang', 'claws', '#e0e8f0', '#4080c0'],
+  ['Kaji', 'Forge Titan', 'kanabo', '#6a2a10', '#ff7020'], ['Hoshi', 'Star Seer', 'yumi', '#20285a', '#c0c8ff'],
+  ['Ame', 'Monsoon Blade', 'sai', '#3a5a6a', '#a0e0e0'], ['Ryujin', 'Jade Dragon', 'naginata', '#1a6a4a', '#80ffc0'],
+  ['Yuki', 'Silent Snow', 'kunai', '#d8e0f0', '#8090c0'], ['Homura', 'Inferno Monk', 'tonfa', '#a02010', '#ffc040'],
+  ['Getsu', 'Eclipse Twin', 'kama', '#18181c', '#ff8040'], ['Kiri', 'Fog Assassin', 'blowgun', '#6a6a7a', '#d0d0ff'],
+  ['Raijin', 'Thunder God', 'kanabo', '#30204a', '#a0e0ff'], ['Tenshi', 'Cloud Walker', 'tessen', '#e8e0f8', '#a080ff'],
+  ['Yami', 'Void Stalker', 'claws', '#0c0610', '#8040ff'], ['Shinobi-Ou', 'The Shadow Master', 'katana', '#111116', '#ffd23f'],
+];
+MORE_RIVALS.forEach(([name, title, weapon, color, accent], k) => {
+  const n = STAGES.length + 1, d = k / (MORE_RIVALS.length - 1);
+  const boss = n % 5 === 0 || k === MORE_RIVALS.length - 1;
+  STAGES.push({
+    name, title, weapon, color, accent, boss, switcher: boss,
+    hp: Math.round((160 + d * 100) * (boss ? 1.25 : 1)), aggr: 0.12 + d * 0.1,
+    block: Math.min(0.75, 0.42 + d * 0.33), dodge: Math.min(0.8, 0.5 + d * 0.3), speed: 1 + d * 0.25,
+  });
+});
 
 // ---------- State ----------
 const STATE = { s: 'title', t: 0, stage: 0, pick: 0 };
+const SAVE_KEY = 'shadowBlades.progress';
+let progress = { unlocked: 1, stars: {} };
+try { const sv = JSON.parse(localStorage.getItem(SAVE_KEY)); if (sv && sv.unlocked) progress = { unlocked: sv.unlocked, stars: sv.stars || {} }; } catch (e) {}
+function saveProgress() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); } catch (e) {} }
+let tapAt = null;
 let player = null, enemy = null, projs = [], parts = [], pops = [], petals = [];
 let shake = 0, hitstop = 0, slow = 0, ann = null, frame = 0, flashA = 0, muted = false;
 const isTouch = matchMedia('(pointer:coarse)').matches;
@@ -112,6 +144,7 @@ function sfx(n) {
     case 'slam': tone(90, 30, 0.4, 'sawtooth', 0.3); noise(0.35, 0.4, 300, 0.5); break;
     case 'swap': tone(900, 1200, 0.05, 'square', 0.04); break;
     case 'ko': tone(300, 50, 0.9, 'sawtooth', 0.2); break;
+    case 'thunder': noise(1.1, 0.35, 140, 0.4); tone(70, 30, 0.9, 'sawtooth', 0.12); break;
   }
 }
 
@@ -121,7 +154,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (!keys[k]) pressed[k] = true;
   keys[k] = true;
-  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'escape'].includes(k)) e.preventDefault();
   if (k === 'm') muted = !muted;
   initAudio();
 });
@@ -136,6 +169,7 @@ let slotClick = null;
 cv.addEventListener('pointerdown', e => {
   initAudio();
   const r = cv.getBoundingClientRect(), gx = (e.clientX - r.left) / r.width * W, gy = (e.clientY - r.top) / r.height * H;
+  if (STATE.s === 'select') { tapAt = { x: gx, y: gy }; return; }
   if (STATE.s === 'fight' && player) {
     const { n, sw, sh, gap, x0, y0 } = slotLayout();
     const i = Math.floor((gx - x0) / (sw + gap));
@@ -504,6 +538,13 @@ function announce(text, sub, max) { ann = { text, sub, t: 0, max }; }
 for (let i = 0; i < 28; i++) petals.push({ x: Math.random() * W, y: Math.random() * H, vx: 0.4 + Math.random() * 0.6, vy: 0.5 + Math.random() * 0.7, rot: Math.random() * 6, s: 2 + Math.random() * 2.5 });
 
 // ---------- Flow ----------
+function openMap() {
+  STATE.s = 'select';
+  if (player) STATE.pick = Math.min(STATE.stage + (STATE.earned && progress.unlocked > STATE.stage + 1 ? 1 : 0), STAGES.length - 1);
+  else STATE.pick = Math.min(progress.unlocked - 1, STAGES.length - 1);
+  STATE.earned = 0; player = null; enemy = null; projs = []; ann = null;
+}
+
 function startStage(i) {
   STATE.stage = i;
   const S = STAGES[i];
@@ -513,7 +554,8 @@ function startStage(i) {
   projs = []; parts = []; pops = [];
   STATE.s = 'intro'; STATE.t = 0;
   updateCam(true);
-  announce(`STAGE ${i + 1}`, `${TOWNS[i % TOWNS.length].name} · ${S.name}, ${S.title}`, 100);
+  STATE.earned = 0;
+  announce(S.boss ? `BOSS · STAGE ${i + 1}` : `STAGE ${i + 1}`, `${TOWNS[i % TOWNS.length].name} · ${S.name}, ${S.title}`, 100);
 }
 
 const demoA = makeFighter({ x: 210, facing: 1, color: '#2563c9', accent: '#ffd23f', name: 'A' });
@@ -531,12 +573,31 @@ function update() {
         demoA.weapon = ORDER[(frame / 120) % ORDER.length];
         demoB.weapon = ORDER[(frame / 120 + 5) % ORDER.length];
       }
-      if (pressed.arrowleft || pressed.a) STATE.pick = (STATE.pick + STAGES.length - 1) % STAGES.length;
-      if (pressed.arrowright || pressed.d) STATE.pick = (STATE.pick + 1) % STAGES.length;
-      setTown(STATE.pick % TOWNS.length);
+      setTown(0);
       camX += 1.5;
-      if (go) { initAudio(); player = null; startStage(STATE.pick); }
+      if (go) { initAudio(); player = null; openMap(); }
       break;
+    case 'select': {
+      const n = STAGES.length;
+      if (pressed.arrowleft || pressed.a) STATE.pick = Math.max(0, STATE.pick - 1);
+      if (pressed.arrowright || pressed.d) STATE.pick = Math.min(n - 1, STATE.pick + 1);
+      if (pressed.arrowup || pressed.w) STATE.pick = Math.max(0, STATE.pick - MAP_COLS);
+      if (pressed.arrowdown || pressed.s) STATE.pick = Math.min(n - 1, STATE.pick + MAP_COLS);
+      let start = pressed.enter || pressed[' '];
+      if (tapAt) {
+        const i = mapTileAt(tapAt.x, tapAt.y);
+        if (i >= 0) { if (i === STATE.pick) start = true; else STATE.pick = i; }
+        tapAt = null;
+      }
+      setTown(STATE.pick);
+      camX += 1.2;
+      if (pressed.escape) { STATE.s = 'title'; break; }
+      if (start) {
+        if (STATE.pick < progress.unlocked) { player = null; startStage(STATE.pick); }
+        else sfx('block');
+      }
+      break;
+    }
     case 'intro':
       STATE.t++;
       updateFighter(player, {}, enemy); updateFighter(enemy, {}, player);
@@ -547,6 +608,7 @@ function update() {
       const px = player.x, ex = enemy.x;
       updateFighter(player, pc, enemy); updateFighter(enemy, ec, player);
       separate(); leash(px, ex); updateProjs();
+      if (pressed.escape) { openMap(); break; }
       if (player.dead || enemy.dead) { STATE.s = 'ko'; STATE.t = 0; announce('K.O.', '', 120); slow = 90; sfx('ko'); }
       break;
     }
@@ -555,29 +617,38 @@ function update() {
       updateFighter(player, {}, enemy); updateFighter(enemy, {}, player); updateProjs();
       if (STATE.t > 150) {
         if (player.dead) STATE.s = 'lose';
-        else STATE.s = STATE.stage < STAGES.length - 1 ? 'cleared' : 'victory';
+        else {
+          const i = STATE.stage, r = player.hp / player.maxHp, st = r >= 0.66 ? 3 : r >= 0.33 ? 2 : 1;
+          STATE.earned = st;
+          progress.stars[i] = Math.max(progress.stars[i] || 0, st);
+          progress.unlocked = Math.min(STAGES.length, Math.max(progress.unlocked, i + 2));
+          saveProgress();
+          STATE.s = i < STAGES.length - 1 ? 'cleared' : 'victory';
+        }
       }
       break;
     case 'cleared':
       updateFighter(player, {}, enemy); updateFighter(enemy, {}, player);
-      if (go) startStage(STATE.stage + 1);
+      if (pressed.escape) openMap();
+      else if (go) startStage(STATE.stage + 1);
       break;
     case 'lose':
       updateFighter(player, {}, enemy); updateFighter(enemy, {}, player);
-      if (go) startStage(STATE.stage);
+      if (pressed.escape) openMap();
+      else if (go) startStage(STATE.stage);
       break;
     case 'victory':
       updateFighter(player, {}, enemy); updateFighter(enemy, {}, player);
-      if (go) { STATE.s = 'title'; player = null; }
+      if (go || pressed.escape) openMap();
       break;
   }
-  if (STATE.s !== 'title' && player) updateCam(false);
+  if (STATE.s !== 'title' && STATE.s !== 'select' && player) updateCam(false);
 }
 
 function tickAmbient() {
   for (const p of petals) {
     const fall = town ? town.T.fall : 1, fx = town ? town.T.fx : 'petal';
-    p.x += fx === 'rain' ? 2.5 : p.vx + Math.sin(frame * 0.02 + p.rot) * (fx === 'leaf' ? 1.2 : 0.3);
+    p.x += fx === 'rain' ? 2.5 : fx === 'storm' ? 4 : p.vx + Math.sin(frame * 0.02 + p.rot) * (fx === 'leaf' ? 1.2 : 0.3);
     p.y += fx === 'firefly' ? Math.sin(frame * 0.03 + p.rot * 3) * 0.4 : p.vy * fall;
     p.rot += fx === 'leaf' ? 0.06 : 0.03;
     if (p.y > H) { p.y = -10; p.x = Math.random() * W; }
@@ -588,6 +659,7 @@ function tickAmbient() {
     updateRunners();
     const n = currentSeg(); if (n !== locName) { locName = n; locT = 0; } locT++;
   }
+  if (town && town.T.fx === 'storm' && Math.random() < 0.004) { flashA = Math.max(flashA, 0.55); sfx('thunder'); }
   for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += p.grav; p.vx *= 0.96; p.life--; }
   parts = parts.filter(p => p.life > 0);
   for (const p of pops) p.t++;
@@ -915,6 +987,62 @@ function paintDojo(b, x, w, rnd, lights) {
   lights.push({ x: cx, y: top + 150, r: 170, c: '255,190,110' });
 }
 
+function blossomTree(b, x, baseY, s, rnd, cols) {
+  b.strokeStyle = '#2a1a1a'; b.lineCap = 'round';
+  b.lineWidth = 9 * s; b.beginPath(); b.moveTo(x, baseY); b.quadraticCurveTo(x - 6 * s, baseY - 60 * s, x + 8 * s, baseY - 110 * s); b.stroke();
+  b.lineWidth = 4 * s;
+  for (const d of [-1, 1]) { b.beginPath(); b.moveTo(x + 4 * s, baseY - 80 * s); b.quadraticCurveTo(x + d * 30 * s, baseY - 100 * s, x + d * 55 * s, baseY - 120 * s); b.stroke(); }
+  for (let i = 0; i < 18; i++) {
+    b.fillStyle = cols[i % cols.length]; b.beginPath();
+    b.arc(x + (rnd() - 0.5) * 130 * s, baseY - 125 * s + (rnd() - 0.5) * 60 * s, (16 + rnd() * 18) * s, 0, Math.PI * 2); b.fill();
+  }
+}
+function paintBridge(b, x, w, rnd, lights) {
+  const cx = x + w / 2, G = GROUND;
+  b.fillStyle = '#16303a'; b.fillRect(x + 10, G - 60, w - 20, 46);
+  b.strokeStyle = 'rgba(180,220,230,0.25)'; b.lineWidth = 1.5;
+  for (let k = 0; k < 9; k++) { const yy = G - 52 + rnd() * 32, xx = x + 20 + rnd() * (w - 70); ln(b, xx, yy, xx + 20 + rnd() * 20, yy); }
+  for (let k = 0; k < 5; k++) {
+    const fx = x + 40 + rnd() * (w - 80), fy = G - 44 + rnd() * 22;
+    b.fillStyle = k % 2 ? '#f07a2a' : '#f2ece0';
+    b.beginPath(); b.ellipse(fx, fy, 8, 3, 0, 0, Math.PI * 2); b.fill();
+    b.beginPath(); b.moveTo(fx - 7, fy); b.lineTo(fx - 13, fy - 3); b.lineTo(fx - 13, fy + 3); b.fill();
+  }
+  b.strokeStyle = '#2a2018'; b.lineWidth = 6; ln(b, x + 34, G - 60, x + 30, G - 230);
+  b.strokeStyle = '#3a6a32'; b.lineWidth = 1.5;
+  for (let k = 0; k < 16; k++) { const sx = x + 4 + k * 4; b.beginPath(); b.moveTo(x + 30, G - 226); b.quadraticCurveTo(sx + 6, G - 200, sx, G - 120 + rnd() * 40); b.stroke(); }
+  const P0 = [x + 50, G - 24], C = [cx, G - 170], P2 = [x + w - 50, G - 24];
+  const q = (t, dy) => [(1 - t) ** 2 * P0[0] + 2 * (1 - t) * t * C[0] + t * t * P2[0], (1 - t) ** 2 * P0[1] + 2 * (1 - t) * t * C[1] + t * t * P2[1] + dy];
+  b.strokeStyle = '#7a1a12'; b.lineWidth = 4; b.beginPath(); b.moveTo(x + 70, G - 14); b.quadraticCurveTo(cx, G - 140, x + w - 70, G - 14); b.stroke();
+  b.strokeStyle = '#b8281c'; b.lineWidth = 10; b.beginPath(); b.moveTo(...P0); b.quadraticCurveTo(...C, ...P2); b.stroke();
+  b.lineWidth = 3;
+  for (let t = 0; t <= 1.001; t += 0.1) { const [ax, ay] = q(t, 0), [, ry] = q(t, -28); ln(b, ax, ay, ax, ry); }
+  b.strokeStyle = '#c8301e'; b.lineWidth = 4; b.beginPath(); b.moveTo(P0[0], P0[1] - 28); b.quadraticCurveTo(C[0], C[1] - 28, P2[0], P2[1] - 28); b.stroke();
+  b.fillStyle = '#d4a640';
+  for (const t of [0, 1]) { const [ax, ay] = q(t, -30); b.beginPath(); b.arc(ax, ay, 5, 0, Math.PI * 2); b.fill(); lights.push({ x: ax, y: ay, r: 50, c: '255,200,120' }); }
+}
+function paintZen(b, x, w, rnd, lights) {
+  const G = GROUND, hx = x + 30, hw = 160;
+  b.fillStyle = '#d8cdb4'; b.fillRect(hx, G - 150, hw, 100);
+  b.fillStyle = '#4a3420'; b.fillRect(hx, G - 150, 6, 100); b.fillRect(hx + hw - 6, G - 150, 6, 100); b.fillRect(hx, G - 56, hw, 6);
+  b.fillStyle = '#f0c878'; b.beginPath(); b.arc(hx + 50, G - 105, 22, 0, Math.PI * 2); b.fill();
+  b.strokeStyle = '#4a3420'; b.lineWidth = 1.5; ln(b, hx + 50, G - 127, hx + 50, G - 83); ln(b, hx + 28, G - 105, hx + 72, G - 105);
+  b.fillStyle = '#f0c878'; b.fillRect(hx + 92, G - 140, 54, 80);
+  b.fillStyle = '#4a3420'; for (let sx = hx + 92; sx < hx + 146; sx += 9) b.fillRect(sx, G - 140, 2, 80);
+  b.fillStyle = '#7a6a4a'; b.beginPath(); b.moveTo(hx - 22, G - 148); b.lineTo(hx + 30, G - 204); b.lineTo(hx + hw - 30, G - 204); b.lineTo(hx + hw + 22, G - 148); b.closePath(); b.fill();
+  b.strokeStyle = 'rgba(40,30,15,0.4)'; b.lineWidth = 1; for (let k = 1; k < 6; k++) ln(b, hx - 22 + k * 9, G - 148 - k * 9.5, hx + hw + 22 - k * 9, G - 148 - k * 9.5);
+  lights.push({ x: hx + 50, y: G - 105, r: 70, c: '255,200,130' });
+  b.fillStyle = '#d8d2c4'; b.fillRect(x + 10, G - 46, w - 20, 32);
+  b.strokeStyle = 'rgba(120,110,100,0.45)'; b.lineWidth = 1; for (let k = 0; k < 5; k++) ln(b, x + 10, G - 42 + k * 6, x + w - 10, G - 42 + k * 6);
+  blossomTree(b, x + w - 100, G - 46, 1.05, rnd, ['#c8301e', '#e0502a', '#a01e14', '#f07030']);
+  for (const [rx, rw, rh] of [[x + w - 170, 22, 18], [x + w - 120, 15, 11], [x + w - 46, 19, 14]]) {
+    b.strokeStyle = 'rgba(120,110,100,0.5)';
+    for (const k of [1.5, 2.1]) { b.beginPath(); b.ellipse(rx, G - 30, rw * k, rh * 0.5 * k, 0, 0, Math.PI * 2); b.stroke(); }
+    b.fillStyle = '#5a5652'; b.beginPath(); b.ellipse(rx, G - 30, rw, rh, 0, Math.PI, 0); b.fill();
+    b.fillStyle = '#4a6a3a'; b.beginPath(); b.ellipse(rx - 3, G - 30 - rh * 0.7, rw * 0.5, 4, 0, 0, Math.PI * 2); b.fill();
+  }
+}
+
 const SEG = [
   { name: 'Temple Gate', w: 380, paint: paintGate },
   { name: 'Main Hall', w: 520, paint: paintHall },
@@ -925,6 +1053,8 @@ const SEG = [
   { name: 'Shinobi Row', w: 440, paint: paintNinjaRow },
   { name: 'Golden Pavilion', w: 400, paint: paintPavilion },
   { name: 'Shinobi Dojo', w: 440, paint: paintDojo },
+  { name: 'Koi Bridge', w: 420, paint: paintBridge },
+  { name: 'Zen Garden', w: 400, paint: paintZen },
 ];
 
 const TOWNS = [
@@ -954,6 +1084,45 @@ const TOWNS = [
     petal: 'rgba(200,140,255,0.9)', fx: 'ember', fall: -1, braziers: true, order: [8, 0, 7, 1, 6, 2, 3, 4, 5] },
 ];
 
+const W_ = 'rgba(255,255,255,0.95)';
+const MORE_TOWNS = [
+  ['Moonlit Koi Gardens', ['#06101e', '#14304a', '#2a5a6a'], [720, 110, 56, '#f0f8ff', 'rgba(200,230,255,0.3)'], true, '140,200,220', ['#13283a', '#0e1e2c', '#08121c'], ['#3e4a50', '#121a1e'], 'rgba(10,50,80,0.3)', 'firefly', 'rgba(160,255,200,0.95)', 0],
+  ['Crimson Dusk Fortress', ['#1a0608', '#6a1418', '#e0502a'], [600, 300, 80, '#ff8040', 'rgba(255,90,40,0.5)'], false, '255,110,60', ['#4a1012', '#360a0c', '#1c0608'], ['#4a2a22', '#160a08'], 'rgba(120,20,10,0.28)', 'ember', 'rgba(255,160,60,0.9)', -1, { braziers: true }],
+  ['Misty Cedar Shrine', ['#1a2420', '#3a4a44', '#7a8a80'], [700, 140, 48, '#e8f0e8', 'rgba(220,240,220,0.3)'], false, '200,220,210', ['#2a3a32', '#1e2c26', '#121c18'], ['#4a524a', '#181c18'], 'rgba(40,70,50,0.3)', 'ash', 'rgba(230,240,230,0.6)', 0.4],
+  ['Lantern Festival Street', ['#080818', '#1c1440', '#4a2a5a'], [760, 90, 40, '#fff0d0', 'rgba(255,220,160,0.25)'], true, '255,180,120', ['#1e1638', '#16102a', '#0c081a'], ['#4a3e3a', '#161210'], 'rgba(60,30,40,0.2)', 'lantern', 'rgba(255,170,70,0.95)', -0.5],
+  ['Frozen Lake Monastery', ['#0e1828', '#2a4060', '#7a9ab8'], [680, 130, 58, '#ffffff', 'rgba(220,240,255,0.4)'], true, '210,230,255', ['#4a6080', '#36485e', '#1e2a3a'], ['#c8d4e0', '#6a7888'], 'rgba(150,180,230,0.3)', 'snow', W_, 0.5],
+  ['Thunder Peak Temple', ['#0a0a14', '#20203a', '#3a3a5a'], [740, 90, 36, '#c0c8e0', 'rgba(180,190,230,0.2)'], false, '150,150,200', ['#1e1e30', '#161624', '#0c0c16'], ['#38384a', '#101016'], 'rgba(30,30,70,0.35)', 'storm', 'rgba(170,190,230,0.6)', 9],
+  ['Plum Blossom Hill', ['#2a1030', '#8a3a6a', '#f0a0a0'], [640, 270, 64, '#fff0e0', 'rgba(255,200,200,0.45)'], false, '255,180,200', ['#6a3a5a', '#502a46', '#2c1428'], ['#5e4a50', '#22181c'], 'rgba(120,40,80,0.2)', 'petal', 'rgba(255,150,190,0.9)', 1.3],
+  ['Ashen Ruins', ['#121010', '#3a3230', '#6a5a50'], [700, 140, 54, '#d8c8b0', 'rgba(200,180,160,0.25)'], false, '180,160,150', ['#2e2826', '#221e1c', '#141210'], ['#3e3836', '#121010'], 'rgba(60,50,40,0.35)', 'ash', 'rgba(180,170,160,0.8)', 0.7],
+  ['Sunrise Torii Coast', ['#2a2050', '#e07050', '#ffd080'], [480, 330, 90, '#fff4c0', 'rgba(255,220,140,0.55)'], false, '255,210,150', ['#7a4a6a', '#5a3a5a', '#2a1a30'], ['#7a6250', '#2a2018'], 'rgba(140,80,40,0.15)', 'petal', 'rgba(255,200,210,0.85)', 1],
+  ['Midnight Bamboo Village', ['#020806', '#0a2018', '#1a3a28'], [720, 120, 50, '#f0fff0', 'rgba(200,255,220,0.25)'], true, '120,220,160', ['#0c2014', '#08160e', '#040c08'], ['#2e3a30', '#0a100c'], 'rgba(10,60,30,0.35)', 'firefly', 'rgba(210,255,120,0.95)', 0],
+  ['Typhoon Harbor', ['#081014', '#1a2a34', '#34505a'], [720, 100, 38, '#c8d8e0', 'rgba(170,200,220,0.2)'], false, '140,180,200', ['#16242c', '#101a20', '#080e12'], ['#323e44', '#0c1214'], 'rgba(20,50,70,0.38)', 'storm', 'rgba(170,210,230,0.6)', 10],
+  ['Blood Moon Citadel', ['#0a0204', '#300810', '#701420'], [700, 140, 70, '#ff2a2a', 'rgba(255,30,30,0.4)'], true, '255,60,60', ['#260810', '#1a060a', '#0e0306'], ['#3a2228', '#100608'], 'rgba(110,0,20,0.32)', 'ember', 'rgba(255,60,60,0.9)', -1, { braziers: true }],
+  ['Wisteria Garden', ['#140c24', '#4a2a6a', '#a070b0'], [700, 150, 56, '#f8f0ff', 'rgba(220,200,255,0.4)'], true, '210,180,255', ['#3a2a52', '#2c1e40', '#180e26'], ['#4e4458', '#1a1420'], 'rgba(80,40,120,0.25)', 'petal', 'rgba(200,160,255,0.9)', 0.9],
+  ['Twilight Rice Terraces', ['#0e1a2a', '#2a5a5a', '#e0a060'], [600, 300, 60, '#ffe0a0', 'rgba(255,200,120,0.4)'], false, '200,220,180', ['#2a4a3a', '#1e382c', '#0e1e16'], ['#5a5440', '#1e1c14'], 'rgba(40,80,60,0.2)', 'firefly', 'rgba(255,230,140,0.95)', 0],
+  ['Sakura Storm Gorge', ['#1a0a20', '#5a2a50', '#d07090'], [720, 130, 58, '#fff0f6', 'rgba(255,200,230,0.4)'], true, '255,190,220', ['#4a2240', '#381a32', '#1e0e1c'], ['#584650', '#1e161a'], 'rgba(100,30,70,0.22)', 'petal', 'rgba(255,170,205,0.95)', 2.2],
+  ['Ghost Lantern Graveyard', ['#04060e', '#101830', '#22304a'], [700, 120, 52, '#d8e8ff', 'rgba(150,190,255,0.3)'], true, '120,160,255', ['#121a2c', '#0c1220', '#060a12'], ['#2c3240', '#0a0c12'], 'rgba(20,40,90,0.38)', 'spirit', 'rgba(120,180,255,0.9)', -0.6],
+  ['Golden Harvest Shrine', ['#2a1808', '#8a5a18', '#f0c050'], [640, 280, 74, '#fff0b0', 'rgba(255,220,100,0.5)'], false, '255,220,140', ['#6a4a1a', '#4e3612', '#2a1c0a'], ['#6a5634', '#241c10'], 'rgba(140,90,20,0.2)', 'leaf', '#f0b030', 1],
+  ['Blizzard Pass', ['#2a3440', '#5a6a7a', '#b8c4d0'], [700, 140, 50, '#ffffff', 'rgba(240,245,255,0.35)'], false, '230,236,245', ['#6a7a8a', '#56646e', '#36404a'], ['#dfe6ee', '#8a96a4'], 'rgba(190,205,230,0.35)', 'snow', W_, 1.6],
+  ['Volcano Forge Temple', ['#0a0404', '#3a0e06', '#c0400a'], [700, 150, 60, '#ffa040', 'rgba(255,120,30,0.45)'], false, '255,100,30', ['#2a0c06', '#1e0804', '#100402'], ['#3a2018', '#100604'], 'rgba(130,40,0,0.3)', 'ember', 'rgba(255,170,40,0.95)', -1.4, { braziers: true }],
+  ['Starfall Observatory', ['#020214', '#0a0a3a', '#2a1a5a'], [740, 100, 44, '#ffffff', 'rgba(200,200,255,0.3)'], true, '160,160,255', ['#12123a', '#0c0c2a', '#060618'], ['#2a2a40', '#0a0a14'], 'rgba(20,20,90,0.35)', 'firefly', 'rgba(255,255,255,0.95)', 0],
+  ['Monsoon Market', ['#10141a', '#28343e', '#50606a'], [720, 100, 40, '#d0d8e0', 'rgba(180,190,200,0.2)'], false, '160,180,190', ['#222c34', '#182026', '#0e1216'], ['#3a4248', '#121618'], 'rgba(30,50,60,0.35)', 'rain', 'rgba(180,200,220,0.55)', 8],
+  ['Jade Dragon Temple', ['#020e0a', '#0a3a2a', '#2a7a5a'], [700, 130, 60, '#e0fff0', 'rgba(150,255,200,0.35)'], true, '120,255,180', ['#0c2a1e', '#081e16', '#04100c'], ['#2a4038', '#0a1410'], 'rgba(0,80,50,0.3)', 'spirit', 'rgba(120,255,180,0.9)', -0.7],
+  ['Silent Snow Village', ['#141c2c', '#3a4a6a', '#8a9ab8'], [720, 120, 54, '#ffffff', 'rgba(230,235,255,0.35)'], true, '220,230,255', ['#4a5a74', '#38465c', '#202838'], ['#d0d8e4', '#7a8494'], 'rgba(160,180,230,0.3)', 'snow', W_, 0.4],
+  ['Inferno Pagoda', ['#120202', '#5a0a04', '#ff5010'], [640, 260, 80, '#ffd060', 'rgba(255,120,20,0.55)'], false, '255,90,20', ['#3a0804', '#280602', '#140200'], ['#4a2014', '#140604'], 'rgba(150,30,0,0.3)', 'ember', 'rgba(255,200,60,0.95)', -1.6, { braziers: true }],
+  ['Eclipse Shrine', ['#000000', '#120a1a', '#2a1a2a'], [700, 140, 64, '#fff8e0', 'rgba(255,220,180,0.5)'], true, '200,160,140', ['#140e18', '#0e0a12', '#060408'], ['#2a2428', '#08060a'], 'rgba(40,20,40,0.38)', 'ash', 'rgba(160,140,150,0.7)', 0.5, { eclipse: true }],
+  ['Phantom Fog Pass', ['#14121c', '#34303e', '#6a6478'], [700, 140, 50, '#e8e4f0', 'rgba(220,210,240,0.25)'], false, '200,195,220', ['#2c2a36', '#22202a', '#14121a'], ['#403c48', '#141218'], 'rgba(60,55,80,0.38)', 'ash', 'rgba(220,215,235,0.55)', 0.3],
+  ['Thunder Dragon Gate', ['#08041a', '#24104a', '#4a2a7a'], [720, 100, 40, '#e0d0ff', 'rgba(200,160,255,0.25)'], false, '170,130,255', ['#1e1238', '#160c2a', '#0c0618'], ['#34284a', '#0e0a16'], 'rgba(50,20,100,0.35)', 'storm', 'rgba(190,170,255,0.6)', 9, { braziers: true }],
+  ['Celestial Cloud Temple', ['#3a3a6a', '#8a8ac0', '#e8d8f0'], [700, 140, 60, '#ffffff', 'rgba(255,255,255,0.5)'], false, '255,245,255', ['#9a90c0', '#8478aa', '#5a5080'], ['#a8a0b8', '#5a5468'], 'rgba(160,150,220,0.2)', 'petal', 'rgba(255,255,255,0.9)', 0.6],
+  ['Shadow Realm', ['#000000', '#0c0414', '#1e0a2e'], [700, 130, 58, '#b080ff', 'rgba(150,80,255,0.35)'], true, '130,60,220', ['#0e0618', '#0a0410', '#040208'], ['#1c1424', '#060408'], 'rgba(40,0,80,0.4)', 'spirit', 'rgba(170,100,255,0.9)', -0.8],
+  ['Throne of the Shadow Master', ['#050300', '#2a1a04', '#8a5a10'], [700, 130, 72, '#ffd23f', 'rgba(255,200,60,0.45)'], true, '255,200,80', ['#2a1c08', '#1e1406', '#0e0a02'], ['#3a3020', '#0e0a04'], 'rgba(90,60,0,0.3)', 'ember', 'rgba(255,210,80,0.95)', -1, { braziers: true }],
+];
+MORE_TOWNS.forEach(([name, sky, moon, stars, fog, [far, far2, mid], floor, tint, fx, petal, fall, extra], k) => {
+  const rnd = mkRnd(900 + k * 13), order = SEG.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  TOWNS.push({ name, sky, moon, stars, fog, far, far2, mid, floor, tint, fx, petal, fall, order: order.slice(0, 7 + k % 3), ...extra });
+});
+
 function paintSky(b, T, rnd) {
   const g = b.createLinearGradient(0, 0, 0, GROUND);
   g.addColorStop(0, T.sky[0]); g.addColorStop(0.6, T.sky[1]); g.addColorStop(1, T.sky[2]);
@@ -964,6 +1133,7 @@ function paintSky(b, T, rnd) {
   rg.addColorStop(0, glow); rg.addColorStop(1, 'rgba(0,0,0,0)');
   b.fillStyle = rg; b.fillRect(0, 0, W, H);
   b.fillStyle = mc; b.beginPath(); b.arc(mx, my, mr, 0, Math.PI * 2); b.fill();
+  if (T.eclipse) { b.fillStyle = '#000'; b.beginPath(); b.arc(mx + 3, my + 2, mr * 0.94, 0, Math.PI * 2); b.fill(); }
   b.fillStyle = 'rgba(10,6,20,0.6)';
   for (const [dx, dy, rx, ry] of [[-40, 20, 120, 9], [50, -24, 90, 6], [-100, -50, 140, 7]]) { b.beginPath(); b.ellipse(mx + dx, my + dy, rx, ry, 0, 0, Math.PI * 2); b.fill(); }
 }
@@ -1113,13 +1283,25 @@ function currentSeg() {
 function drawPetals() {
   const fx = town.T.fx;
   ctx.fillStyle = town.T.petal; ctx.strokeStyle = town.T.petal;
-  if (fx === 'rain') {
+  if (fx === 'rain' || fx === 'storm') {
     ctx.lineWidth = 1.2;
-    for (const p of petals) for (let k = 0; k < 3; k++) {
+    const n = fx === 'storm' ? 4 : 3, sl = fx === 'storm' ? 9 : 5;
+    for (const p of petals) for (let k = 0; k < n; k++) {
       const x = (p.x + k * 331) % W, y = (p.y + k * 191) % H;
-      line(x, y, x - 5, y - 18);
+      line(x, y, x - sl, y - 18);
     }
     return;
+  }
+  if (fx === 'ash') { for (const p of petals) { ctx.beginPath(); ctx.arc(p.x, p.y, p.s * 0.55, 0, Math.PI * 2); ctx.fill(); } return; }
+  if (fx === 'spirit' || fx === 'lantern') {
+    for (const p of petals) {
+      const a = 0.45 + 0.55 * Math.abs(Math.sin(frame * 0.04 + p.rot * 4));
+      ctx.globalAlpha = a * 0.3; ctx.beginPath(); ctx.arc(p.x, p.y, p.s * 3, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = a;
+      if (fx === 'lantern') ctx.fillRect(p.x - p.s * 0.8, p.y - p.s, p.s * 1.6, p.s * 2.2);
+      else { ctx.beginPath(); ctx.arc(p.x, p.y, p.s * 0.9, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1; return;
   }
   if (fx === 'snow') { for (const p of petals) { ctx.beginPath(); ctx.arc(p.x, p.y, p.s * 0.8, 0, Math.PI * 2); ctx.fill(); } return; }
   if (fx === 'leaf') {
@@ -1566,11 +1748,50 @@ function drawAnnounce() {
   ctx.restore();
 }
 
-function drawOverlay(title, lines, color) {
+function drawOverlay(title, lines, color, prompt = 'PRESS ENTER') {
   ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, W, H);
   bigText(title, 230, 76, color, color);
   lines.forEach((l, i) => smallText(l, 290 + i * 32, 20));
-  if ((frame >> 5) % 2 === 0) smallText(isTouch ? 'TAP TO CONTINUE' : 'PRESS ENTER', 410, 18, '#ffd23f');
+  if ((frame >> 5) % 2 === 0) smallText(isTouch ? 'TAP TO CONTINUE' : prompt, 410, 18, '#ffd23f');
+}
+
+// ---------- Stage map ----------
+const MAP_COLS = 8, MAP_TW = 100, MAP_TH = 58, MAP_GAP = 10, MAP_Y0 = 88;
+const mapX0 = () => (W - (MAP_COLS * MAP_TW + (MAP_COLS - 1) * MAP_GAP)) / 2;
+function mapTileAt(gx, gy) {
+  const c = Math.floor((gx - mapX0()) / (MAP_TW + MAP_GAP)), r = Math.floor((gy - MAP_Y0) / (MAP_TH + MAP_GAP));
+  if (c < 0 || c >= MAP_COLS || r < 0) return -1;
+  const inX = gx - mapX0() - c * (MAP_TW + MAP_GAP) <= MAP_TW, inY = gy - MAP_Y0 - r * (MAP_TH + MAP_GAP) <= MAP_TH;
+  const i = r * MAP_COLS + c;
+  return inX && inY && i < STAGES.length ? i : -1;
+}
+function drawMap() {
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
+  bigText('STAGE MAP', 62, 44, '#ffd23f', 'rgba(255,90,60,0.6)');
+  const x0 = mapX0();
+  STAGES.forEach((S, i) => {
+    const x = x0 + (i % MAP_COLS) * (MAP_TW + MAP_GAP), y = MAP_Y0 + (i / MAP_COLS | 0) * (MAP_TH + MAP_GAP);
+    const locked = i >= progress.unlocked, sel = i === STATE.pick, T = TOWNS[i];
+    const g = ctx.createLinearGradient(0, y, 0, y + MAP_TH); g.addColorStop(0, T.sky[1]); g.addColorStop(1, T.sky[2]);
+    ctx.beginPath(); ctx.roundRect(x, y, MAP_TW, MAP_TH, 8);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.fillStyle = locked ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.25)'; ctx.fill();
+    ctx.lineWidth = sel ? 3 : 1.5; ctx.strokeStyle = sel ? '#fff' : S.boss ? '#ffd23f' : 'rgba(255,255,255,0.25)'; ctx.stroke();
+    ctx.textAlign = 'left'; ctx.font = 'bold 18px Impact, "Arial Black", sans-serif';
+    ctx.fillStyle = locked ? 'rgba(255,255,255,0.35)' : '#fff'; ctx.fillText(String(i + 1), x + 8, y + 22);
+    if (S.boss) { ctx.textAlign = 'right'; ctx.font = 'bold 10px system-ui, sans-serif'; ctx.fillStyle = '#ffd23f'; ctx.fillText('BOSS', x + MAP_TW - 7, y + 16); }
+    ctx.textAlign = 'left'; ctx.font = '11px system-ui, sans-serif';
+    ctx.fillStyle = locked ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.92)';
+    ctx.fillText(locked ? '🔒 Locked' : S.name, x + 8, y + 39);
+    if (!locked) { const st = progress.stars[i] || 0; ctx.fillStyle = '#ffd23f'; ctx.fillText('★'.repeat(st) + '☆'.repeat(3 - st), x + 8, y + 52); }
+  });
+  const i = STATE.pick, S = STAGES[i], T = TOWNS[i], locked = i >= progress.unlocked;
+  const cleared = Object.keys(progress.stars).length, stars = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+  ctx.textAlign = 'center'; ctx.font = 'bold 19px Georgia, serif'; ctx.fillStyle = '#fff';
+  ctx.fillText(`Stage ${i + 1}: ${T.name}`, W / 2, 452);
+  smallText(locked ? 'Clear the previous stage to unlock' : `vs ${S.name}, ${S.title} — ${WEAPONS[S.weapon].name}${S.boss ? '  ·  BOSS' : ''}`, 476, 15, locked ? 'rgba(255,255,255,0.55)' : '#ffd23f');
+  smallText(isTouch ? 'Tap a stage, tap again to fight' : 'Arrows / WASD to choose  ·  ENTER to fight  ·  ESC back', 504, 13, 'rgba(255,255,255,0.6)');
+  smallText(`${cleared} / ${STAGES.length} cleared  ·  ★ ${stars} / ${STAGES.length * 3}`, 526, 13, 'rgba(255,255,255,0.75)');
 }
 
 function drawTitle() {
@@ -1589,11 +1810,10 @@ function drawTitle() {
   rows.forEach((r, i) => smallText(r, 220 + i * 26, 15, 'rgba(255,255,255,0.75)'));
   smallText('Land hits to charge your special. Blocking cuts damage but roots you in place.', 328, 14, 'rgba(255,255,255,0.55)');
   smallText(`${WEAPONS[demoA.weapon].name}  vs  ${WEAPONS[demoB.weapon].name}`, 500, 14, 'rgba(255,210,63,0.8)');
-  if ((frame >> 5) % 2 === 0) smallText(isTouch ? 'TAP TO BEGIN' : 'PRESS ENTER TO BEGIN', 412, 22, '#ffd23f');
-  const PS = STAGES[STATE.pick];
+  if ((frame >> 5) % 2 === 0) smallText(isTouch ? 'TAP TO BEGIN' : 'PRESS ENTER FOR THE STAGE MAP', 412, 22, '#ffd23f');
+  const cleared = Object.keys(progress.stars).length;
   ctx.font = 'bold 17px Georgia, serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  ctx.fillText(`◀   Stage ${STATE.pick + 1}: ${TOWNS[STATE.pick % TOWNS.length].name}  ·  vs ${PS.name}, ${PS.title}   ▶`, W / 2, 362);
-  smallText('A / D or ◀ ▶ to choose a stage', 381, 12, 'rgba(255,255,255,0.5)');
+  ctx.fillText(`${STAGES.length} stages  ·  ${cleared} cleared  ·  every 5th stage is a boss`, W / 2, 366);
 }
 
 function render() {
@@ -1605,8 +1825,11 @@ function render() {
   drawLayer(town.far, camX * PAR.far, FAR_P); drawLayer(town.mid, camX * PAR.mid, MID_P); drawRunners(); drawLayer(town.near, camX, town.P);
   ctx.save(); ctx.translate(-camX, 0);
   drawLights();
-  if (STATE.s === 'title') {
-    ctx.restore(); drawPetals(); ctx.restore(); drawTitle(); return;
+  if (STATE.s === 'title' || STATE.s === 'select') {
+    ctx.restore(); drawPetals(); ctx.restore();
+    if (flashA > 0.02) { ctx.fillStyle = `rgba(255,255,255,${flashA})`; ctx.fillRect(0, 0, W, H); }
+    if (STATE.s === 'title') drawTitle(); else drawMap();
+    return;
   }
   for (const f of [enemy, player]) drawShadow(f);
   for (const f of [enemy, player]) f.trail.forEach((t, i) => drawNinja(Object.assign({}, f, { x: t.x, y: t.y, special: f.special }), 0.08 + i * 0.04));
@@ -1620,11 +1843,11 @@ function render() {
   drawAnnounce();
   if (STATE.s === 'cleared') {
     const N = STAGES[STATE.stage + 1];
-    drawOverlay('STAGE CLEAR', [`Next stop: ${TOWNS[(STATE.stage + 1) % TOWNS.length].name}`, `${N.name}, ${N.title} — wields the ${WEAPONS[N.weapon].name}`], '#3ddc84');
+    drawOverlay('STAGE CLEAR', [`${'★'.repeat(STATE.earned)}${'☆'.repeat(3 - STATE.earned)}`, `Next: Stage ${STATE.stage + 2} · ${TOWNS[STATE.stage + 1].name}`, `${N.name}, ${N.title} — wields the ${WEAPONS[N.weapon].name}`], '#3ddc84', 'ENTER: next stage   ·   ESC: stage map');
   } else if (STATE.s === 'lose') {
-    drawOverlay('DEFEATED', [`${STAGES[STATE.stage].name} wins this time.`, 'Try a different weapon!'], '#ff4d4d');
+    drawOverlay('DEFEATED', [`${STAGES[STATE.stage].name} wins this time.`, 'Try a different weapon!'], '#ff4d4d', 'ENTER: retry   ·   ESC: stage map');
   } else if (STATE.s === 'victory') {
-    drawOverlay('VICTORY', ['You are the Shadow Master.', `All ${STAGES.length} rivals have fallen.`], '#ffd23f');
+    drawOverlay('VICTORY', ['You are the Shadow Master.', `All ${STAGES.length} rivals have fallen.`], '#ffd23f', 'ENTER: stage map');
   }
 }
 
