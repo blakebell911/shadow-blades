@@ -97,6 +97,14 @@ MORE_RIVALS.forEach(([name, title, weapon, color, accent], k) => {
     block: Math.min(0.75, 0.42 + d * 0.33), dodge: Math.min(0.8, 0.5 + d * 0.3), speed: 1 + d * 0.25,
   });
 });
+STAGES.push(
+  { name: 'Akuma', title: 'Demon Gatekeeper', weapon: 'kanabo', color: '#3a0a0a', accent: '#ff3030', hp: 280, aggr: 0.22, block: 0.72, dodge: 0.78, speed: 1.24 },
+  { name: 'Kurogane', title: 'The Black Steel', weapon: 'katana', color: '#16161c', accent: '#e0e0f0', hp: 280, aggr: 0.22, block: 0.7, dodge: 0.78, speed: 1.25, boss: true, switcher: true, final: true },
+);
+// Final stage: after Kurogane falls, a wave of minions attacks, then the ultimate boss.
+const MINION_COUNT = 8, MINION_MAX_ALIVE = 3;
+const MINION_AI = { aggr: 0.08, block: 0.12, dodge: 0.15 };
+const ULT = { name: 'YAMI-NO-Ō', title: 'Lord of All Shadows', weapon: 'odachi', color: '#0a0010', accent: '#c040ff', hp: 420, aggr: 0.22, block: 0.6, dodge: 0.8, speed: 1.2, switcher: true };
 
 // ---------- State ----------
 const STATE = { s: 'title', t: 0, stage: 0, pick: 0 };
@@ -105,6 +113,7 @@ let progress = { unlocked: 1, stars: {} };
 try { const sv = JSON.parse(localStorage.getItem(SAVE_KEY)); if (sv && sv.unlocked) progress = { unlocked: sv.unlocked, stars: sv.stars || {} }; } catch (e) {}
 function saveProgress() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); } catch (e) {} }
 let tapAt = null;
+let minions = [], phase = 0, minionQueue = 0;
 let player = null, enemy = null, projs = [], parts = [], pops = [], petals = [];
 let shake = 0, hitstop = 0, slow = 0, ann = null, frame = 0, flashA = 0, muted = false;
 const isTouch = matchMedia('(pointer:coarse)').matches;
@@ -197,13 +206,21 @@ function makeFighter(o) {
   }, o);
 }
 
+function foes() { return (phase === 1 ? minions : [enemy]).filter(e => e && !e.dead); }
+function nearestFoe(x) {
+  let best = null;
+  for (const e of foes()) if (!best || Math.abs(e.x - x) < Math.abs(best.x - x)) best = e;
+  return best || enemy;
+}
 function inReach(f, o, range) {
+  range *= f.scale || 1;
   const dx = (o.x - f.x) * f.facing;
   return dx > -15 && dx < range + 20 && Math.abs(o.y - f.y) < 80;
 }
 
 function hit(a, d, dmg, kb, launch = 0, melee = true, dir = a.facing) {
   if (d.dead) return false;
+  dmg *= a.dmgMult || 1;
   const hx = d.x - dir * 12, hy = d.y - 55;
   if (d.special === 'sai') {
     d.special = null; d.blockFlash = 14; flashA = 0.3;
@@ -459,7 +476,9 @@ function updateFighter(f, c, o) {
     } else {
       const wins = w.hits === 2 ? [0.3, 0.6] : [0.35];
       wins.forEach((st, i) => {
-        if (!(f.hitMask & (1 << i)) && p >= st && p <= st + 0.35 && inReach(f, o, w.range)) { f.hitMask |= 1 << i; f.hasHit = true; hit(f, o, w.dmg, w.kb); }
+        if (f.hitMask & (1 << i) || p < st || p > st + 0.35) return;
+        const tg = (f === player ? foes() : [o]).filter(e => inReach(f, e, w.range));
+        if (tg.length) { f.hitMask |= 1 << i; f.hasHit = true; for (const e of tg) hit(f, e, w.dmg, w.kb); }
       });
     }
     if (--f.atk === 0) f.cd = w.cd;
@@ -484,7 +503,7 @@ function updateProjs() {
   for (const p of projs) {
     if (p.grav) p.vy += p.grav;
     p.life--; p.x += p.vx; p.y += p.vy || 0; p.rot = (p.rot || 0) + (p.landed ? 0 : 0.5);
-    const t = p.owner === player ? enemy : player;
+    const t = p.owner === player ? nearestFoe(p.x) : player;
     if (p.type === 'cloud') {
       p.r = Math.min(70, p.r + 2); p.vx *= 0.98;
       if (!t.dead && Math.abs(p.x - t.x) < p.r + 15 && Math.abs(p.y - (t.y - 50)) < p.r + 30) {
@@ -618,7 +637,31 @@ function openMap() {
   STATE.s = 'select';
   if (player) STATE.pick = Math.min(STATE.stage + (STATE.earned && progress.unlocked > STATE.stage + 1 ? 1 : 0), STAGES.length - 1);
   else STATE.pick = Math.min(progress.unlocked - 1, STAGES.length - 1);
-  STATE.earned = 0; player = null; enemy = null; projs = []; ann = null;
+  STATE.earned = 0; player = null; enemy = null; projs = []; ann = null; minions = []; phase = 0;
+}
+
+function startPhase(n) {
+  STATE.s = 'phase'; STATE.next = n; STATE.t = 0; projs = [];
+  player.hp = Math.min(player.maxHp, player.hp + (n === 1 ? 25 : 35));
+  if (n === 1) { announce('MINIONS ATTACK!', `Defeat all ${MINION_COUNT} of the Shadow Clan`, 110); slow = 40; sfx('ko'); }
+  else { announce('THE ULTIMATE BOSS', `${ULT.name} — ${ULT.title}`, 150); flashA = 0.9; shake = 22; sfx('thunder'); }
+}
+function spawnMinion() {
+  const side = Math.random() < 0.5 ? -1 : 1, x = camX + (side < 0 ? 70 : W - 70);
+  const m = makeFighter({ x, facing: -side, color: '#15151c', accent: '#c02020', name: 'MINION', isAI: true, minion: true,
+    weapon: ['katana', 'kunai', 'nunchaku', 'kama', 'shuriken', 'tonfa'][Math.random() * 6 | 0],
+    hp: 30, maxHp: 30, hpShow: 30, speed: 1, ai: { blockT: 0, moveDir: 0, moveT: 0, think: 0 } });
+  smokePuff(x, GROUND - 40); sfx('throw');
+  minions.push(m);
+}
+function spawnUltimate() {
+  minions = [];
+  const x = player.x + (player.x - camX < W / 2 ? 420 : -420);
+  enemy = makeFighter({ x, facing: x > player.x ? -1 : 1, color: ULT.color, accent: ULT.accent, name: ULT.name, weapon: ULT.weapon,
+    hp: ULT.hp, maxHp: ULT.hp, hpShow: ULT.hp, speed: ULT.speed, isAI: true, scale: 1.35, dmgMult: 1.3, aura: true,
+    ai: { blockT: 0, moveDir: 0, moveT: 0, think: 0 } });
+  smokePuff(x, GROUND - 60); smokePuff(x, GROUND - 100); sparks(x, GROUND - 80, ULT.accent, 30, 8);
+  shake = 18; flashA = 0.6; sfx('slam');
 }
 
 function startStage(i) {
@@ -627,11 +670,11 @@ function startStage(i) {
   setTown(i % TOWNS.length);
   player = makeFighter({ x: 250, facing: 1, color: '#2563c9', accent: '#ffd23f', name: 'YOU', weapon: player ? player.weapon : 'katana' });
   enemy = makeFighter({ x: 710, facing: -1, color: S.color, accent: S.accent, name: S.name.toUpperCase(), weapon: S.weapon, hp: S.hp, maxHp: S.hp, hpShow: S.hp, speed: S.speed, isAI: true, ai: { blockT: 0, moveDir: 0, moveT: 0, think: 0 } });
-  projs = []; parts = []; pops = [];
+  projs = []; parts = []; pops = []; minions = []; phase = 0; minionQueue = 0;
   STATE.s = 'intro'; STATE.t = 0;
   updateCam(true);
   STATE.earned = 0;
-  announce(S.boss ? `BOSS · STAGE ${i + 1}` : `STAGE ${i + 1}`, `${TOWNS[i % TOWNS.length].name} · ${S.name}, ${S.title}`, 100);
+  announce(S.final ? `FINAL STAGE ${i + 1}` : S.boss ? `BOSS · STAGE ${i + 1}` : `STAGE ${i + 1}`, `${TOWNS[i % TOWNS.length].name} · ${S.name}, ${S.title}`, 100);
 }
 
 const demoA = makeFighter({ x: 210, facing: 1, color: '#2563c9', accent: '#ffd23f', name: 'A' });
@@ -681,17 +724,54 @@ function update() {
       if (STATE.t === 100) { STATE.s = 'fight'; announce('FIGHT!', '', 45); sfx('special'); }
       break;
     case 'fight': {
-      const pc = playerControls(), ec = aiControl(enemy, player, STAGES[STATE.stage]);
+      if (phase === 1) enemy = nearestFoe(player.x);
+      const pc = playerControls();
       const px = player.x, ex = enemy.x;
-      updateFighter(player, pc, enemy); updateFighter(enemy, ec, player);
+      updateFighter(player, pc, enemy);
+      if (phase === 1) for (const m of minions) updateFighter(m, m.dead ? {} : aiControl(m, player, MINION_AI), player);
+      else updateFighter(enemy, aiControl(enemy, player, phase === 2 ? ULT : STAGES[STATE.stage]), player);
       separate(); leash(px, ex); updateProjs();
+      if (phase === 1) for (const a of minions) {
+        if (a.dead) continue;
+        for (const o of [player, ...minions]) {
+          if (o === a || o.dead) continue;
+          const dx = a.x - o.x;
+          if (Math.abs(dx) < 34 && Math.abs(a.y - o.y) < 70) a.x += (34 - Math.abs(dx)) / 2 * (Math.sign(dx) || 1);
+        }
+      }
       if (pressed.escape) { openMap(); break; }
-      if (player.dead || enemy.dead) { STATE.s = 'ko'; STATE.t = 0; announce('K.O.', '', 120); slow = 90; sfx('ko'); }
+      if (player.dead) { STATE.s = 'ko'; STATE.t = 0; announce('K.O.', '', 120); slow = 90; sfx('ko'); break; }
+      if (STAGES[STATE.stage].final && phase < 2) {
+        if (phase === 0 && enemy.dead) startPhase(1);
+        else if (phase === 1) {
+          for (const m of minions) if (m.dead) m.goneT = (m.goneT || 0) + 1;
+          minions = minions.filter(m => !m.dead || m.goneT < 90);
+          const alive = minions.filter(m => !m.dead).length;
+          if (alive < MINION_MAX_ALIVE && minionQueue > 0 && --STATE.spawnT <= 0) { spawnMinion(); minionQueue--; STATE.spawnT = 40; }
+          if (alive === 0 && minionQueue === 0) startPhase(2);
+        }
+        break;
+      }
+      if (enemy.dead) { STATE.s = 'ko'; STATE.t = 0; announce('K.O.', '', 120); slow = 90; sfx('ko'); }
       break;
     }
+    case 'phase':
+      STATE.t++;
+      updateFighter(player, {}, enemy); updateFighter(enemy, {}, player);
+      for (const m of minions) updateFighter(m, {}, player);
+      updateProjs();
+      if (STATE.next === 1) {
+        if (STATE.t === 60) { for (let k = 0; k < MINION_MAX_ALIVE; k++) spawnMinion(); minionQueue = MINION_COUNT - MINION_MAX_ALIVE; STATE.spawnT = 40; }
+        if (STATE.t >= 100) { phase = 1; STATE.s = 'fight'; announce('FIGHT!', '', 40); }
+      } else {
+        if (STATE.t === 90) spawnUltimate();
+        if (STATE.t >= 160) { phase = 2; STATE.s = 'fight'; announce('FIGHT!', '', 40); sfx('special'); }
+      }
+      break;
     case 'ko':
       STATE.t++;
       updateFighter(player, {}, enemy); updateFighter(enemy, {}, player); updateProjs();
+      for (const m of minions) updateFighter(m, {}, player);
       if (STATE.t > 150) {
         if (player.dead) STATE.s = 'lose';
         else {
@@ -1193,6 +1273,8 @@ const MORE_TOWNS = [
   ['Celestial Cloud Temple', ['#3a3a6a', '#8a8ac0', '#e8d8f0'], [700, 140, 60, '#ffffff', 'rgba(255,255,255,0.5)'], false, '255,245,255', ['#9a90c0', '#8478aa', '#5a5080'], ['#a8a0b8', '#5a5468'], 'rgba(160,150,220,0.2)', 'petal', 'rgba(255,255,255,0.9)', 0.6],
   ['Shadow Realm', ['#000000', '#0c0414', '#1e0a2e'], [700, 130, 58, '#b080ff', 'rgba(150,80,255,0.35)'], true, '130,60,220', ['#0e0618', '#0a0410', '#040208'], ['#1c1424', '#060408'], 'rgba(40,0,80,0.4)', 'spirit', 'rgba(170,100,255,0.9)', -0.8],
   ['Throne of the Shadow Master', ['#050300', '#2a1a04', '#8a5a10'], [700, 130, 72, '#ffd23f', 'rgba(255,200,60,0.45)'], true, '255,200,80', ['#2a1c08', '#1e1406', '#0e0a02'], ['#3a3020', '#0e0a04'], 'rgba(90,60,0,0.3)', 'ember', 'rgba(255,210,80,0.95)', -1, { braziers: true }],
+  ['Demon Gate Bridge', ['#0a0206', '#3a0a1a', '#8a1a2a'], [700, 120, 64, '#ff3a3a', 'rgba(255,40,40,0.4)'], true, '255,60,80', ['#2a0812', '#1c060c', '#0e0306'], ['#3a2228', '#0e0608'], 'rgba(100,0,30,0.34)', 'storm', 'rgba(255,120,140,0.6)', 9, { braziers: true }],
+  ['Summit of the Ultimate Shadow', ['#000000', '#140820', '#3a1050'], [700, 120, 80, '#d080ff', 'rgba(180,80,255,0.45)'], true, '170,80,255', ['#120820', '#0c0616', '#06030c'], ['#24182c', '#08040c'], 'rgba(60,0,100,0.38)', 'spirit', 'rgba(200,120,255,0.95)', -1.2, { braziers: true, eclipse: true }],
 ];
 MORE_TOWNS.forEach(([name, sky, moon, stars, fog, [far, far2, mid], floor, tint, fx, petal, fall, extra], k) => {
   const rnd = mkRnd(900 + k * 13), order = SEG.map((_, i) => i);
@@ -1408,7 +1490,7 @@ function updateCam(snap) {
 // Street Fighter rule: fighters can't get more than a screen apart. Whoever moved away gets stopped.
 function leash(px, ex) {
   const d = enemy.x - player.x;
-  if (Math.abs(d) <= MAXD) return;
+  if (enemy.dead || Math.abs(d) <= MAXD) return;
   const s = Math.sign(d), excess = Math.abs(d) - MAXD;
   const pAway = Math.max(0, (px - player.x) * s), eAway = Math.max(0, (enemy.x - ex) * s), tot = pAway + eAway;
   const pShare = tot > 0 ? pAway / tot : 0.5;
@@ -1643,7 +1725,15 @@ function drawNinja(f, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(f.x, f.y);
-  ctx.scale(f.facing, 1);
+  ctx.scale(f.facing * (f.scale || 1), f.scale || 1);
+  if (f.aura && !f.dead) {
+    const fl = 0.75 + Math.sin(frame * 0.2) * 0.15 + Math.random() * 0.1;
+    const ag = ctx.createRadialGradient(0, -48, 10, 0, -48, 80);
+    ag.addColorStop(0, `rgba(190,80,255,${0.45 * fl})`); ag.addColorStop(1, 'rgba(120,0,200,0)');
+    ctx.fillStyle = ag; ctx.fillRect(-80, -128, 160, 160);
+    ctx.fillStyle = `rgba(200,120,255,${0.35 * fl})`;
+    for (let k = 0; k < 5; k++) { const fx = -24 + k * 12, h = 30 + Math.sin(frame * 0.3 + k * 1.7) * 12; ctx.beginPath(); ctx.ellipse(fx, -96 - h / 3, 6, h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
   if (f.dead) ctx.rotate(-f.deadT * 1.45);
   const flash = f.flash > 0 && (f.flash >> 1) % 2 === 0;
   const body = flash ? '#ffffff' : f.color, dk = flash ? '#dddddd' : shade(f.color, -0.4);
@@ -1856,7 +1946,11 @@ function drawWeaponSlots() {
 
 function drawHUD() {
   drawBar(30, 40, 340, player, false);
-  drawBar(W - 370, 40, 340, enemy, true);
+  if (phase === 1) {
+    const alive = minions.filter(m => !m.dead), left = alive.length + minionQueue;
+    const hp = alive.reduce((a, m) => a + m.hp, 0) + minionQueue * 30;
+    drawBar(W - 370, 40, 340, { name: `SHADOW CLAN ×${left}`, hp, maxHp: MINION_COUNT * 30, hpShow: hp, energy: 0, weapon: enemy.weapon }, true);
+  } else drawBar(W - 370, 40, 340, enemy, true);
   ctx.textAlign = 'center'; ctx.font = 'bold 15px Impact, "Arial Black", sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ctx.fillText(`STAGE ${STATE.stage + 1} / ${STAGES.length}`, W / 2, 38);
   if (locName) {
@@ -2123,9 +2217,11 @@ function render() {
     if (STATE.s === 'title') drawTitle(); else drawMap();
     return;
   }
-  for (const f of [enemy, player]) drawShadow(f);
+  const foeList = phase === 1 ? minions : [enemy, ...minions];
+  for (const f of [...foeList, player]) drawShadow(f);
   for (const f of [enemy, player]) f.trail.forEach((t, i) => drawNinja(Object.assign({}, f, { x: t.x, y: t.y, special: f.special }), 0.08 + i * 0.04));
-  drawNinja(enemy); drawNinja(player);
+  for (const f of foeList) drawNinja(f, f.goneT ? Math.max(0, 1 - f.goneT / 90) : 1);
+  drawNinja(player);
   drawProjs(); drawParts();
   ctx.restore();
   drawPetals();
@@ -2139,7 +2235,7 @@ function render() {
   } else if (STATE.s === 'lose') {
     drawOverlay('DEFEATED', [`${STAGES[STATE.stage].name} wins this time.`, 'Try a different weapon!'], '#ff4d4d', 'ENTER: retry   ·   ESC: stage map');
   } else if (STATE.s === 'victory') {
-    drawOverlay('VICTORY', ['You are the Shadow Master.', `All ${STAGES.length} rivals have fallen.`], '#ffd23f', 'ENTER: stage map');
+    drawOverlay('ULTIMATE VICTORY', [`${ULT.name} has fallen. You are the true Shadow Master.`, `All ${STAGES.length} stages conquered.`], '#ffd23f', 'ENTER: stage map');
   }
 }
 

@@ -2,7 +2,7 @@
 
 A 2D ninja fighting game in a single HTML file — no build step, no assets. Everything is drawn with the Canvas API and the sound effects are synthesized with Web Audio.
 
-A stages game: battle through **38 stages**, each set in its own endless, looping Japanese temple town with its own weather, using 20 ninja weapons. Every 5th stage is a boss. Clear a stage to unlock the next and earn up to 3 stars (based on health left). Progress saves in your browser.
+A stages game: battle through **40 stages**, each set in its own endless, looping Japanese temple town with its own weather, using 20 ninja weapons. Every 5th stage is a boss. On the final stage, defeating the boss unleashes a wave of ninja minions — survive them and the Ultimate Boss appears. Clear a stage to unlock the next and earn up to 3 stars (based on health left). Progress saves in your browser.
 
 ## Play
 
